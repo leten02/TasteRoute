@@ -1,0 +1,226 @@
+a,b,jaccard
+Nightlife,Nightlife,1.0
+Nightlife,Bars,0.946917808219178
+Nightlife,Sandwiches,0.04806346243583761
+Nightlife,Coffee & Tea,0.02133850630455868
+Nightlife,Pizza,0.041314086610253854
+Nightlife,American (New),0.23029932803909592
+Nightlife,American (Traditional),0.2054794520547945
+Nightlife,Breakfast & Brunch,0.08053691275167785
+Nightlife,Italian,0.06387921022067364
+Nightlife,Specialty Food,0.01179245283018868
+Nightlife,Chinese,0.015691007845503924
+Nightlife,Burgers,0.05695364238410596
+Nightlife,Bakeries,0.004408060453400504
+Nightlife,Event Planning & Services,0.05596269153897402
+Nightlife,Seafood,0.061182868796736914
+Bars,Nightlife,0.946917808219178
+Bars,Bars,1.0
+Bars,Sandwiches,0.04798464491362764
+Bars,Coffee & Tea,0.01691542288557214
+Bars,Pizza,0.04209445585215606
+Bars,American (New),0.22690131992457574
+Bars,American (Traditional),0.2082527401676338
+Bars,Breakfast & Brunch,0.07967667436489607
+Bars,Italian,0.06498194945848375
+Bars,Specialty Food,0.011002444987775062
+Bars,Chinese,0.014392991239048811
+Bars,Burgers,0.057931034482758624
+Bars,Bakeries,0.0045871559633027525
+Bars,Event Planning & Services,0.05179558011049724
+Bars,Seafood,0.05861581920903955
+Sandwiches,Nightlife,0.04806346243583761
+Sandwiches,Bars,0.04798464491362764
+Sandwiches,Sandwiches,1.0
+Sandwiches,Coffee & Tea,0.11751662971175167
+Sandwiches,Pizza,0.11594202898550725
+Sandwiches,American (New),0.06948304613674264
+Sandwiches,American (Traditional),0.07638483965014577
+Sandwiches,Breakfast & Brunch,0.12798530312308634
+Sandwiches,Italian,0.08739076154806492
+Sandwiches,Specialty Food,0.03964194373401535
+Sandwiches,Chinese,0.001257071024512885
+Sandwiches,Burgers,0.07341411261582323
+Sandwiches,Bakeries,0.035075653370013754
+Sandwiches,Event Planning & Services,0.057284299858557285
+Sandwiches,Seafood,0.023660403618649965
+Coffee & Tea,Nightlife,0.02133850630455868
+Coffee & Tea,Bars,0.01691542288557214
+Coffee & Tea,Sandwiches,0.11751662971175167
+Coffee & Tea,Coffee & Tea,1.0
+Coffee & Tea,Pizza,0.007030827474310438
+Coffee & Tea,American (New),0.027649769585253458
+Coffee & Tea,American (Traditional),0.02033492822966507
+Coffee & Tea,Breakfast & Brunch,0.1286472148541114
+Coffee & Tea,Italian,0.015209125475285171
+Coffee & Tea,Specialty Food,0.029085872576177285
+Coffee & Tea,Chinese,0.00693000693000693
+Coffee & Tea,Burgers,0.037993920972644375
+Coffee & Tea,Bakeries,0.1070559610705596
+Coffee & Tea,Event Planning & Services,0.027293404094010616
+Coffee & Tea,Seafood,0.0015048908954100827
+Pizza,Nightlife,0.041314086610253854
+Pizza,Bars,0.04209445585215606
+Pizza,Sandwiches,0.11594202898550725
+Pizza,Coffee & Tea,0.007030827474310438
+Pizza,Pizza,1.0
+Pizza,American (New),0.027874564459930314
+Pizza,American (Traditional),0.03740036787247088
+Pizza,Breakfast & Brunch,0.024893746205221615
+Pizza,Italian,0.23965651834504292
+Pizza,Specialty Food,0.017980636237897647
+Pizza,Chinese,0.0020891364902506965
+Pizza,Burgers,0.044015444015444015
+Pizza,Bakeries,0.01122754491017964
+Pizza,Event Planning & Services,0.031538461538461536
+Pizza,Seafood,0.01698841698841699
+American (New),Nightlife,0.23029932803909592
+American (New),Bars,0.22690131992457574
+American (New),Sandwiches,0.06948304613674264
+American (New),Coffee & Tea,0.027649769585253458
+American (New),Pizza,0.027874564459930314
+American (New),American (New),1.0
+American (New),American (Traditional),0.14957264957264957
+American (New),Breakfast & Brunch,0.12982456140350876
+American (New),Italian,0.03353867214236824
+American (New),Specialty Food,0.025
+American (New),Chinese,0.008895478131949592
+American (New),Burgers,0.06432748538011696
+American (New),Bakeries,0.011119936457505957
+American (New),Event Planning & Services,0.05690376569037657
+American (New),Seafood,0.05178268251273345
+American (Traditional),Nightlife,0.2054794520547945
+American (Traditional),Bars,0.2082527401676338
+American (Traditional),Sandwiches,0.07638483965014577
+American (Traditional),Coffee & Tea,0.02033492822966507
+American (Traditional),Pizza,0.03740036787247088
+American (Traditional),American (New),0.14957264957264957
+American (Traditional),American (Traditional),1.0
+American (Traditional),Breakfast & Brunch,0.10613718411552346
+American (Traditional),Italian,0.032444124008651765
+American (Traditional),Specialty Food,0.017788089713843776
+American (Traditional),Chinese,0.00944138473642801
+American (Traditional),Burgers,0.1033210332103321
+American (Traditional),Bakeries,0.01702127659574468
+American (Traditional),Event Planning & Services,0.07727272727272727
+American (Traditional),Seafood,0.06513761467889909
+Breakfast & Brunch,Nightlife,0.08053691275167785
+Breakfast & Brunch,Bars,0.07967667436489607
+Breakfast & Brunch,Sandwiches,0.12798530312308634
+Breakfast & Brunch,Coffee & Tea,0.1286472148541114
+Breakfast & Brunch,Pizza,0.024893746205221615
+Breakfast & Brunch,American (New),0.12982456140350876
+Breakfast & Brunch,American (Traditional),0.10613718411552346
+Breakfast & Brunch,Breakfast & Brunch,1.0
+Breakfast & Brunch,Italian,0.030303030303030304
+Breakfast & Brunch,Specialty Food,0.014694508894044857
+Breakfast & Brunch,Chinese,0.003137254901960784
+Breakfast & Brunch,Burgers,0.048372911169744945
+Breakfast & Brunch,Bakeries,0.05678793256433008
+Breakfast & Brunch,Event Planning & Services,0.050711743772241996
+Breakfast & Brunch,Seafood,0.030276046304541407
+Italian,Nightlife,0.06387921022067364
+Italian,Bars,0.06498194945848375
+Italian,Sandwiches,0.08739076154806492
+Italian,Coffee & Tea,0.015209125475285171
+Italian,Pizza,0.23965651834504292
+Italian,American (New),0.03353867214236824
+Italian,American (Traditional),0.032444124008651765
+Italian,Breakfast & Brunch,0.030303030303030304
+Italian,Italian,1.0
+Italian,Specialty Food,0.04034334763948498
+Italian,Chinese,0.004258943781942078
+Italian,Burgers,0.018656716417910446
+Italian,Bakeries,0.012059369202226345
+Italian,Event Planning & Services,0.057729941291585124
+Italian,Seafood,0.044466403162055336
+Specialty Food,Nightlife,0.01179245283018868
+Specialty Food,Bars,0.011002444987775062
+Specialty Food,Sandwiches,0.03964194373401535
+Specialty Food,Coffee & Tea,0.029085872576177285
+Specialty Food,Pizza,0.017980636237897647
+Specialty Food,American (New),0.025
+Specialty Food,American (Traditional),0.017788089713843776
+Specialty Food,Breakfast & Brunch,0.014694508894044857
+Specialty Food,Italian,0.04034334763948498
+Specialty Food,Specialty Food,1.0
+Specialty Food,Chinese,0.019175455417066157
+Specialty Food,Burgers,0.011398963730569948
+Specialty Food,Bakeries,0.039445628997867806
+Specialty Food,Event Planning & Services,0.043243243243243246
+Specialty Food,Seafood,0.04788418708240535
+Chinese,Nightlife,0.015691007845503924
+Chinese,Bars,0.014392991239048811
+Chinese,Sandwiches,0.001257071024512885
+Chinese,Coffee & Tea,0.00693000693000693
+Chinese,Pizza,0.0020891364902506965
+Chinese,American (New),0.008895478131949592
+Chinese,American (Traditional),0.00944138473642801
+Chinese,Breakfast & Brunch,0.003137254901960784
+Chinese,Italian,0.004258943781942078
+Chinese,Specialty Food,0.019175455417066157
+Chinese,Chinese,1.0
+Chinese,Burgers,0.0
+Chinese,Bakeries,0.0042643923240938165
+Chinese,Event Planning & Services,0.010845986984815618
+Chinese,Seafood,0.059509918319719954
+Burgers,Nightlife,0.05695364238410596
+Burgers,Bars,0.057931034482758624
+Burgers,Sandwiches,0.07341411261582323
+Burgers,Coffee & Tea,0.037993920972644375
+Burgers,Pizza,0.044015444015444015
+Burgers,American (New),0.06432748538011696
+Burgers,American (Traditional),0.1033210332103321
+Burgers,Breakfast & Brunch,0.048372911169744945
+Burgers,Italian,0.018656716417910446
+Burgers,Specialty Food,0.011398963730569948
+Burgers,Chinese,0.0
+Burgers,Burgers,1.0
+Burgers,Bakeries,0.0
+Burgers,Event Planning & Services,0.02176541717049577
+Burgers,Seafood,0.018610421836228287
+Bakeries,Nightlife,0.004408060453400504
+Bakeries,Bars,0.0045871559633027525
+Bakeries,Sandwiches,0.035075653370013754
+Bakeries,Coffee & Tea,0.1070559610705596
+Bakeries,Pizza,0.01122754491017964
+Bakeries,American (New),0.011119936457505957
+Bakeries,American (Traditional),0.01702127659574468
+Bakeries,Breakfast & Brunch,0.05678793256433008
+Bakeries,Italian,0.012059369202226345
+Bakeries,Specialty Food,0.039445628997867806
+Bakeries,Chinese,0.0042643923240938165
+Bakeries,Burgers,0.0
+Bakeries,Bakeries,1.0
+Bakeries,Event Planning & Services,0.03431372549019608
+Bakeries,Seafood,0.001221001221001221
+Event Planning & Services,Nightlife,0.05596269153897402
+Event Planning & Services,Bars,0.05179558011049724
+Event Planning & Services,Sandwiches,0.057284299858557285
+Event Planning & Services,Coffee & Tea,0.027293404094010616
+Event Planning & Services,Pizza,0.031538461538461536
+Event Planning & Services,American (New),0.05690376569037657
+Event Planning & Services,American (Traditional),0.07727272727272727
+Event Planning & Services,Breakfast & Brunch,0.050711743772241996
+Event Planning & Services,Italian,0.057729941291585124
+Event Planning & Services,Specialty Food,0.043243243243243246
+Event Planning & Services,Chinese,0.010845986984815618
+Event Planning & Services,Burgers,0.02176541717049577
+Event Planning & Services,Bakeries,0.03431372549019608
+Event Planning & Services,Event Planning & Services,1.0
+Event Planning & Services,Seafood,0.030534351145038167
+Seafood,Nightlife,0.061182868796736914
+Seafood,Bars,0.05861581920903955
+Seafood,Sandwiches,0.023660403618649965
+Seafood,Coffee & Tea,0.0015048908954100827
+Seafood,Pizza,0.01698841698841699
+Seafood,American (New),0.05178268251273345
+Seafood,American (Traditional),0.06513761467889909
+Seafood,Breakfast & Brunch,0.030276046304541407
+Seafood,Italian,0.044466403162055336
+Seafood,Specialty Food,0.04788418708240535
+Seafood,Chinese,0.059509918319719954
+Seafood,Burgers,0.018610421836228287
+Seafood,Bakeries,0.001221001221001221
+Seafood,Event Planning & Services,0.030534351145038167
+Seafood,Seafood,1.0
