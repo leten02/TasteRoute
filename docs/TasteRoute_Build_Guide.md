@@ -436,9 +436,9 @@ $$s_{ui} = \frac{\hat r_{ui}-1}{4}\cdot w(d_{ui})$$
 
 ## 진행 체크리스트
 
-- [ ] A1 data.py
-- [ ] A2 metrics.py (RMSE, MAE)
-- [ ] A3 baseline.py — test 1.051
+- [x] A1 data.py
+- [x] A2 metrics.py (RMSE, MAE)
+- [x] A3 baseline.py — test 1.051 (재현: 1.0508)
 - [ ] A4 mf.py — test 1.052
 - [ ] A5 item_knn.py — val 1.140
 - [ ] A6 cbf.py — val 1.043
