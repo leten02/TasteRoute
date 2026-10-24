@@ -1,0 +1,231 @@
+{
+ "grid": [
+  {
+   "similarity": "cosine",
+   "beta": 0,
+   "k": 10,
+   "val_rmse": 1.121215830809194
+  },
+  {
+   "similarity": "cosine",
+   "beta": 0,
+   "k": 20,
+   "val_rmse": 1.1151804714093327
+  },
+  {
+   "similarity": "cosine",
+   "beta": 0,
+   "k": 40,
+   "val_rmse": 1.1137236986410648
+  },
+  {
+   "similarity": "cosine",
+   "beta": 0,
+   "k": 80,
+   "val_rmse": 1.113447438844167
+  },
+  {
+   "similarity": "cosine",
+   "beta": 25,
+   "k": 10,
+   "val_rmse": 1.1411858998815672
+  },
+  {
+   "similarity": "cosine",
+   "beta": 25,
+   "k": 20,
+   "val_rmse": 1.1357826537005646
+  },
+  {
+   "similarity": "cosine",
+   "beta": 25,
+   "k": 40,
+   "val_rmse": 1.1344078030499072
+  },
+  {
+   "similarity": "cosine",
+   "beta": 25,
+   "k": 80,
+   "val_rmse": 1.134124197665047
+  },
+  {
+   "similarity": "cosine",
+   "beta": 100,
+   "k": 10,
+   "val_rmse": 1.1456396755862444
+  },
+  {
+   "similarity": "cosine",
+   "beta": 100,
+   "k": 20,
+   "val_rmse": 1.140405602100891
+  },
+  {
+   "similarity": "cosine",
+   "beta": 100,
+   "k": 40,
+   "val_rmse": 1.138997416963375
+  },
+  {
+   "similarity": "cosine",
+   "beta": 100,
+   "k": 80,
+   "val_rmse": 1.138695816019465
+  },
+  {
+   "similarity": "adjusted",
+   "beta": 0,
+   "k": 10,
+   "val_rmse": 1.161724972536549
+  },
+  {
+   "similarity": "adjusted",
+   "beta": 0,
+   "k": 20,
+   "val_rmse": 1.1532251684670016
+  },
+  {
+   "similarity": "adjusted",
+   "beta": 0,
+   "k": 40,
+   "val_rmse": 1.1493694821338718
+  },
+  {
+   "similarity": "adjusted",
+   "beta": 0,
+   "k": 80,
+   "val_rmse": 1.148245073978277
+  },
+  {
+   "similarity": "adjusted",
+   "beta": 25,
+   "k": 10,
+   "val_rmse": 1.1728456103593015
+  },
+  {
+   "similarity": "adjusted",
+   "beta": 25,
+   "k": 20,
+   "val_rmse": 1.1640533851697166
+  },
+  {
+   "similarity": "adjusted",
+   "beta": 25,
+   "k": 40,
+   "val_rmse": 1.1597011716547476
+  },
+  {
+   "similarity": "adjusted",
+   "beta": 25,
+   "k": 80,
+   "val_rmse": 1.1582235693273257
+  },
+  {
+   "similarity": "adjusted",
+   "beta": 100,
+   "k": 10,
+   "val_rmse": 1.176092411964013
+  },
+  {
+   "similarity": "adjusted",
+   "beta": 100,
+   "k": 20,
+   "val_rmse": 1.1671997277321744
+  },
+  {
+   "similarity": "adjusted",
+   "beta": 100,
+   "k": 40,
+   "val_rmse": 1.1627429280876564
+  },
+  {
+   "similarity": "adjusted",
+   "beta": 100,
+   "k": 80,
+   "val_rmse": 1.1612007537795588
+  },
+  {
+   "similarity": "pearson",
+   "beta": 0,
+   "k": 10,
+   "val_rmse": 1.1576902640582472
+  },
+  {
+   "similarity": "pearson",
+   "beta": 0,
+   "k": 20,
+   "val_rmse": 1.1504930871570684
+  },
+  {
+   "similarity": "pearson",
+   "beta": 0,
+   "k": 40,
+   "val_rmse": 1.1471655138830585
+  },
+  {
+   "similarity": "pearson",
+   "beta": 0,
+   "k": 80,
+   "val_rmse": 1.146324542594338
+  },
+  {
+   "similarity": "pearson",
+   "beta": 25,
+   "k": 10,
+   "val_rmse": 1.169056542234855
+  },
+  {
+   "similarity": "pearson",
+   "beta": 25,
+   "k": 20,
+   "val_rmse": 1.161531793940318
+  },
+  {
+   "similarity": "pearson",
+   "beta": 25,
+   "k": 40,
+   "val_rmse": 1.1578519637107516
+  },
+  {
+   "similarity": "pearson",
+   "beta": 25,
+   "k": 80,
+   "val_rmse": 1.1565493669360667
+  },
+  {
+   "similarity": "pearson",
+   "beta": 100,
+   "k": 10,
+   "val_rmse": 1.1721659641325552
+  },
+  {
+   "similarity": "pearson",
+   "beta": 100,
+   "k": 20,
+   "val_rmse": 1.1646223975874108
+  },
+  {
+   "similarity": "pearson",
+   "beta": 100,
+   "k": 40,
+   "val_rmse": 1.160885503272625
+  },
+  {
+   "similarity": "pearson",
+   "beta": 100,
+   "k": 80,
+   "val_rmse": 1.1595104739062327
+  }
+ ],
+ "best": {
+  "similarity": "cosine",
+  "beta": 0,
+  "k": 80,
+  "val_rmse": 1.113447438844167
+ },
+ "test": {
+  "rmse": 1.1212336485271834,
+  "mae": 0.8390012325076716,
+  "n": 69847
+ }
+}
