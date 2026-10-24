@@ -36,3 +36,36 @@ class CandidateFilter:
         top = np.argpartition(-s, m - 1)[:m]
         top = top[np.argsort(-s[top], kind="stable")]
         return top[np.isfinite(s[top])]
+
+
+def blend_popularity(pred, popularity, gamma):
+    """Ranking score r_hat + gamma * log(1 + popularity).
+
+    Rating-trained models predict how much a user would like a place, not how
+    likely they are to go; popularity carries that second signal. gamma = 0
+    keeps the pure rating order. np.log1p(x) computes log(1 + x) accurately.
+    """
+    return pred + gamma * np.log1p(popularity)
+
+
+def two_stage(filt, u, pred, pool):
+    """Take the `pool` most popular eligible places, then order them by pred.
+
+    Returns the candidate ids, best first (same contract as CandidateFilter.top_m).
+    """
+    popular = filt.top_m(u, filt.popularity, m=pool)
+    return popular[np.argsort(-pred[popular], kind="stable")]
+
+
+def to_unit(scores):
+    """Min-max rescale to [0, 1] so a blended score can feed rerank like a rating.
+
+    rerank maps ratings with (r - 1) / 4; passing 1 + 4 * to_unit(s) makes the
+    same formula see the blended score on the 1-5 scale. Equal scores map to 1,
+    not 0: a 0 would zero every re-rank score and hide the distance order.
+    """
+    s = np.asarray(scores, dtype=float)
+    if s.size == 0:
+        return s
+    span = s.max() - s.min()
+    return np.ones_like(s) if span == 0 else (s - s.min()) / span
