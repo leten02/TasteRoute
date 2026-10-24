@@ -3,9 +3,12 @@
 This is the configuration the experiments found best (experiments/popularity.py,
 experiments/ranking.py, experiments/route.py):
     1. blend predicted ratings with log popularity (gamma = 5)
-    2. take the top 50 eligible places, re-rank by exp distance decay (tau = 2 km),
-       or, with a learned visit model (models/visit.py), rank the top 200 by
-       its logit over distance, travel radius, predicted rating and popularity
+    2. take the top 200 eligible places and re-rank them by exp distance decay
+       (tau = 2 km), or, with a learned visit model (models/visit.py), by its
+       logit over distance, travel radius, predicted rating and popularity.
+       200 rather than 50: with only 50 citywide candidates there may be no
+       near place left to promote (experiments/learned_distance.py: NDCG@10
+       0.0340 -> 0.0373 for the fixed rule, tau re-tuned on validation)
     3. keep the top n and order them with Held-Karp from the start point,
        on walking distances along streets when a road network is given
        (roads.py) or on straight-line distances otherwise
@@ -20,7 +23,7 @@ from .roads import RoadNetwork
 from .route import held_karp, path_length
 
 GAMMA, TAU, DECAY = 5.0, 2.0, "exp"
-LEARNED_POOL = 200
+POOL = 200
 
 
 def plan_day(pred, filt, items, start, user=None, n=6, mask=None, gamma=GAMMA, tau=TAU, decay=DECAY, roads=None,
@@ -36,7 +39,8 @@ def plan_day(pred, filt, items, start, user=None, n=6, mask=None, gamma=GAMMA, t
         n: number of places to visit.
         mask: optional boolean array over items, e.g. only bakeries.
         roads: None for straight-line routing, "osm" to download the walking
-            network around the chosen places, or a roads.RoadNetwork.
+            network around the chosen places, a roads.RoadNetwork, or a
+            function (lats, lons) -> RoadNetwork (e.g. to limit download time).
         visit: None for the fixed distance rule, or (model, features, columns)
             to rank with a learned visit model: a fitted
             models.visit.LogisticRegression, a models.visit.VisitFeatures and
@@ -54,7 +58,7 @@ def plan_day(pred, filt, items, start, user=None, n=6, mask=None, gamma=GAMMA, t
             rec_path      the same for the recommendation order
 
     Re-ranking (step 2) still uses straight-line distance: it only has to tell
-    near from far among 50 candidates, and street distance for all of them
+    near from far among the candidates, and street distance for all of them
     would need a much larger network.
     """
     score = blend_popularity(np.asarray(pred, dtype=float), filt.popularity, gamma)
@@ -62,14 +66,12 @@ def plan_day(pred, filt, items, start, user=None, n=6, mask=None, gamma=GAMMA, t
         score = np.where(mask, score, -np.inf)
     lat, lon = items.lat.values, items.lon.values
     u = -1 if user is None else user
+    cand = filt.top_m(u, score, m=POOL)
+    dist = haversine(start[0], start[1], lat[cand], lon[cand])
     if visit is None:
-        cand = filt.top_m(u, score)
-        dist = haversine(start[0], start[1], lat[cand], lon[cand])
         chosen = rerank(cand, 1 + 4 * to_unit(score[cand]), dist, tau, decay, k=n)
     else:
         model, feats, columns = visit
-        cand = filt.top_m(u, score, m=LEARNED_POOL)
-        dist = haversine(start[0], start[1], lat[cand], lon[cand])
         X = feats.build(user, cand, np.asarray(pred, dtype=float)[cand], dist=dist)
         chosen = rank_learned(model, X, cand, k=n, columns=columns)
 
@@ -79,7 +81,12 @@ def plan_day(pred, filt, items, start, user=None, n=6, mask=None, gamma=GAMMA, t
     straight = distance_matrix(pts_lat, pts_lon)
     routes = None
     if roads is not None:
-        net = RoadNetwork.around(pts_lat, pts_lon) if isinstance(roads, str) else roads
+        if isinstance(roads, str):
+            net = RoadNetwork.around(pts_lat, pts_lon)
+        elif callable(roads):
+            net = roads(pts_lat, pts_lon)
+        else:
+            net = roads
         routes = net.routes(pts_lat, pts_lon)
     D = straight if routes is None else routes.D
 

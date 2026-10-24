@@ -6,3 +6,4 @@ jupyter
 pytest
 folium
 osmnx
+streamlit

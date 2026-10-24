@@ -6,8 +6,11 @@ nodes, street segments are edges weighted by length) and the distance between
 two places is the shortest path on it, found with Dijkstra's algorithm.
 
 The network is downloaded once per area with OSMnx and cached under data/osm/
-(OpenStreetMap data, ODbL; not committed). Building a RoadNetwork from arrays
-needs no download, which is how the tests use it.
+(OpenStreetMap data, ODbL; not committed). A cached network is reused for any
+request whose box it covers, so downloading Center City once up front
+(python -m tasteroute.roads) serves every route there without waiting.
+Building a RoadNetwork from arrays needs no download, which is how the tests
+use it.
 """
 import hashlib
 import time
@@ -23,6 +26,9 @@ CACHE_DIR = Path(__file__).resolve().parents[2] / "data" / "osm"
 KM_PER_DEG_LAT = 111.32
 WALK_KMH = 4.5
 DOWNLOAD_TRIES = 3
+REQUEST_TIMEOUT = 180  # seconds per Overpass request
+# Center City Philadelphia plus University City and Fishtown edges: (north, south, east, west)
+CENTER_CITY_BOX = (39.978, 39.928, -75.128, -75.205)
 
 
 class RoadNetwork:
@@ -45,31 +51,38 @@ class RoadNetwork:
         self.graph = csr_matrix((w[keep], (u[keep], v[keep])), shape=(n, n))
 
     @classmethod
-    def download(cls, north, south, east, west, cache_dir=CACHE_DIR):
+    def download(cls, north, south, east, west, cache_dir=CACHE_DIR, tries=DOWNLOAD_TRIES, timeout=REQUEST_TIMEOUT):
         """Walkable streets inside a lat/lon box, from cache or from OpenStreetMap.
 
         osmnx.graph_from_bbox(bbox=(left, bottom, right, top), network_type="walk",
         simplify=False) queries the Overpass API for every footway, sidewalk
         and street a pedestrian may use. simplify=False keeps every bend as a
         node so a path drawn through the nodes follows the street shape.
+        tries and timeout (seconds per request) bound how long a busy server
+        can make the caller wait; an interactive app should keep both small.
+        tries=0 means cache only: raise right away if the area is not cached.
         """
         cache_dir = Path(cache_dir)
         box = tuple(round(x, 4) for x in (north, south, east, west))
-        path = cache_dir / f"walk_{hashlib.md5(str(box).encode()).hexdigest()[:12]}.npz"
-        if path.exists():
-            z = np.load(path)
+        cached = cls._cached_covering(cache_dir, box)
+        if cached is not None:
+            z = np.load(cached)
             return cls(z["lat"], z["lon"], z["u"], z["v"], z["length_km"])
+        if tries == 0:
+            raise RuntimeError("this area's walking network is not cached")
+        path = cache_dir / f"walk_{hashlib.md5(str(box).encode()).hexdigest()[:12]}.npz"
 
         import osmnx as ox  # optional dependency: pip install -e ".[demo]"
 
         ox.settings.cache_folder = str(cache_dir / "http")
+        ox.settings.requests_timeout = timeout
         # the public Overpass server rate-limits busy clients; wait and retry
-        for attempt in range(DOWNLOAD_TRIES):
+        for attempt in range(tries):
             try:
                 G = ox.graph_from_bbox(bbox=(west, south, east, north), network_type="walk", simplify=False)
                 break
             except Exception as e:  # osmnx raises several HTTP/response error types
-                if attempt == DOWNLOAD_TRIES - 1:
+                if attempt == tries - 1:
                     raise RuntimeError("OpenStreetMap download failed; retry later or use --straight") from e
                 wait = 30 * 2 ** attempt
                 print(f"OpenStreetMap busy ({type(e).__name__}), retrying in {wait}s", flush=True)
@@ -81,16 +94,36 @@ class RoadNetwork:
         edges = np.array([(index[a], index[b], d["length"] / 1000) for a, b, d in G.edges(data=True)])
         u, v, w = edges[:, 0].astype(int), edges[:, 1].astype(int), edges[:, 2]
         cache_dir.mkdir(parents=True, exist_ok=True)
-        np.savez_compressed(path, lat=lat, lon=lon, u=u, v=v, length_km=w)
+        np.savez_compressed(path, lat=lat, lon=lon, u=u, v=v, length_km=w, box=np.array(box))
         return cls(lat, lon, u, v, w)
 
+    @staticmethod
+    def _cached_covering(cache_dir, box):
+        """Smallest cached network file whose box contains `box`, or None."""
+        north, south, east, west = box
+        best = None
+        for f in sorted(Path(cache_dir).glob("walk_*.npz")):
+            with np.load(f) as z:  # np.load on .npz reads each array only when accessed
+                if "box" not in z.files:
+                    continue
+                n, s, e, w = z["box"]
+            if n >= north and s <= south and e >= east and w <= west:
+                area = (n - s) * (e - w)
+                if best is None or area < best[0]:
+                    best = (area, f)
+        return None if best is None else best[1]
+
     @classmethod
-    def around(cls, lats, lons, margin_km=0.5, cache_dir=CACHE_DIR):
-        """The network covering all given points plus a margin for detours."""
+    def around(cls, lats, lons, margin_km=0.5, cache_dir=CACHE_DIR, **download_kw):
+        """The network covering all given points plus a margin for detours.
+
+        download_kw (tries, timeout) are passed on to download().
+        """
         lats, lons = np.asarray(lats, dtype=float), np.asarray(lons, dtype=float)
         dlat = margin_km / KM_PER_DEG_LAT
         dlon = margin_km / (KM_PER_DEG_LAT * np.cos(np.radians(lats.mean())))
-        return cls.download(lats.max() + dlat, lats.min() - dlat, lons.max() + dlon, lons.min() - dlon, cache_dir)
+        return cls.download(lats.max() + dlat, lats.min() - dlat, lons.max() + dlon, lons.min() - dlon, cache_dir,
+                            **download_kw)
 
     def nearest_node(self, lat, lon):
         """Index of the street node closest (straight line) to each point."""
@@ -147,3 +180,12 @@ class Routes:
         for a, b in zip(stops[:-1], stops[1:]):
             out.extend(self.path(a, b)[(1 if out else 0):])
         return out
+
+
+if __name__ == "__main__":
+    # one-time download of Center City (a few minutes), so the dashboard and the
+    # demo never wait for OpenStreetMap inside it
+    t = time.time()
+    net = RoadNetwork.download(*CENTER_CITY_BOX)
+    print(f"Center City walking network: {len(net.lat):,} nodes, {net.graph.nnz:,} street segments "
+          f"({time.time() - t:.0f}s), cached in {CACHE_DIR}")
