@@ -79,3 +79,18 @@ def test_ranking_metrics_reject_bad_k_and_count_duplicates_once():
     with pytest.raises(ValueError):
         precision_at_k([1, 2], {1}, 0)
     assert ndcg_at_k([11, 11], {11}, 2) == 1.0  # not 1.63
+
+
+def test_blend_and_two_stage():
+    from tasteroute.candidates import blend_popularity, to_unit, two_stage
+
+    assert list(blend_popularity(np.array([4.0, 4.0]), np.array([0.0, 100.0]), 0)) == [4.0, 4.0]
+    b = blend_popularity(np.array([4.1, 4.0]), np.array([0.0, 100.0]), 0.1)
+    assert b[1] > b[0]  # popular place overtakes a slightly higher rating
+    assert list(to_unit([2.0, 4.0, 3.0])) == [0.0, 1.0, 0.5]
+
+    items = pd.DataFrame({"i": [0, 1, 2], "is_open": [1, 1, 1]})
+    train = pd.DataFrame({"u": [9] * 6, "i": [0, 0, 0, 1, 1, 2]})
+    f = CandidateFilter(items, train, seen=train.iloc[:0], min_support=1)
+    # pool of 2 most popular = items 0, 1; then ordered by pred
+    assert list(two_stage(f, 5, np.array([1.0, 5.0, 9.0]), pool=2)) == [1, 0]
