@@ -51,7 +51,8 @@ data_analysis_preprocessing/  전체 데이터 탐색, 전처리, EDA·전처리
 src/tasteroute/               패키지
   data.py                       전처리 결과 로드, split 조회
   metrics.py                    RMSE, MAE, Precision/Recall/HitRate/NDCG@K
-  models/                       baseline(전체 평균, bias), mf, item_knn, cbf, hybrid
+  models/                       baseline(전체 평균, bias), mf, item_knn, cbf, hybrid,
+                                visit(거리 민감도 학습용 로지스틱 회귀)
   candidates.py                 후보 생성, 인기도 blend
   geo.py                        haversine, 사용자 기준점
   roads.py                      OpenStreetMap 보행 도로망, Dijkstra 도보 거리와 경로
@@ -91,7 +92,7 @@ python demo/bakery_tour.py --user 1458  # 데이터셋 사용자 맞춤 (전처�
 python demo/bakery_tour.py --straight   # 다운로드 없이 직선 연결
 ```
 
-실험을 하나씩 돌리려면 `python experiments/<이름>.py` (baseline, mf, item_knn, cbf_hybrid, compare_models, ranking, route, popularity, figures).
+실험을 하나씩 돌리려면 `python experiments/<이름>.py` (baseline, mf, item_knn, cbf_hybrid, compare_models, ranking, route, popularity, learned_distance, figures).
 
 ## 결과 요약
 
@@ -118,6 +119,8 @@ python demo/bakery_tour.py --straight   # 다운로드 없이 직선 연결
 
 **랭킹 개선** (`results/popularity.json`): 예측 별점만으로는 인기순(P@10 0.0094)을 이기지 못한다. 별점에 log 인기도를 섞고(γ = 5) 거리 재순위화를 하면 P@10 0.0102지만, 인기순 + 거리(0.0100)와 사실상 같다. 이 데이터에서 랭킹 신호는 대부분 인기도와 거리에서 나온다.
 
+**거리 민감도 학습** (`results/learned_distance.json`, [설명](docs/ML_Learned_Distance.md)): 고정 규칙 `e^(-d/2km)` 대신 로지스틱 회귀(직접 구현한 경사하강법 + L2)로 거리, 개인 이동 반경, 예상 별점, 인기도의 가중치를 학습했다. 기존 설정보다 NDCG@10이 유의하게 높고(0.0340 → 0.0365, p = 0.003), 검증으로 튜닝한 고정 규칙과는 같은 정확도(p = 0.36)에 커버리지가 더 넓다(1.01% → 1.26%). 개인 이동 반경을 빼면 유의하게 나빠진다. 1km 지점에서 1km 더 멀어지는 손해는 인기도 1.56배로 상쇄된다.
+
 ## 참고 문헌과 코드 출처
 
 괄호 안의 코드 경로는 `src/tasteroute/` 기준이다 (예: `models/mf.py` = `src/tasteroute/models/mf.py`).
@@ -142,6 +145,7 @@ python demo/bakery_tour.py --straight   # 다운로드 없이 직선 연결
 - [코드 구현 계획](docs/TasteRoute_Code_Plan.md)
 - [구현 가이드](docs/TasteRoute_Build_Guide.md)
 - [실제 도보 길찾기](docs/Walking_Route.md)
+- [거리 민감도 학습 (로지스틱 회귀)](docs/ML_Learned_Distance.md)
 - [발표 개요](docs/TasteRoute_Slides_Outline.md)
 - [데이터 분석과 전처리](data_analysis_preprocessing/README.md)
 
