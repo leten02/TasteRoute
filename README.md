@@ -141,6 +141,7 @@ python demo/bakery_tour.py --straight   # 다운로드 없이 직선 연결
 - [제안서](docs/Term_Project_Proposal.docx)
 - [코드 구현 계획](docs/TasteRoute_Code_Plan.md)
 - [구현 가이드](docs/TasteRoute_Build_Guide.md)
+- [실제 도보 길찾기](docs/Walking_Route.md)
 - [발표 개요](docs/TasteRoute_Slides_Outline.md)
 - [데이터 분석과 전처리](data_analysis_preprocessing/README.md)
 
