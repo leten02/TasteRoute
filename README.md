@@ -85,7 +85,7 @@ pytest
 
 # 4. 데모: 시청에서 출발하는 빵집 6곳 경로 → demo/bakery_tour.html
 python demo/bakery_tour.py            # 새 방문자
-python demo/bakery_tour.py --user 1458  # 데이터셋 사용자 맞춤
+python demo/bakery_tour.py --user 1458  # 데이터셋 사용자 맞춤 (전처리가 매긴 0부터의 내부 번호, Yelp user_id 아님)
 ```
 
 실험을 하나씩 돌리려면 `python experiments/<이름>.py` (baseline, mf, item_knn, cbf_hybrid, compare_models, ranking, route, popularity, figures).
@@ -116,6 +116,8 @@ python demo/bakery_tour.py --user 1458  # 데이터셋 사용자 맞춤
 **랭킹 개선** (`results/popularity.json`): 예측 별점만으로는 인기순(P@10 0.0094)을 이기지 못한다. 별점에 log 인기도를 섞고(γ = 5) 거리 재순위화를 하면 P@10 0.0102지만, 인기순 + 거리(0.0100)와 사실상 같다. 이 데이터에서 랭킹 신호는 대부분 인기도와 거리에서 나온다.
 
 ## 참고 문헌과 코드 출처
+
+괄호 안의 코드 경로는 `src/tasteroute/` 기준이다 (예: `models/mf.py` = `src/tasteroute/models/mf.py`).
 
 - Y. Koren, R. Bell, C. Volinsky, "Matrix Factorization Techniques for Recommender Systems", *IEEE Computer*, 2009 — bias 모델, MF와 SGD 갱신식 (`models/baseline.py`, `models/mf.py`)
 - A. Yeung, "Matrix Factorization: A Simple Tutorial and Implementation in Python", https://albertauyeung.github.io/2017/04/23/python-matrix-factorization.html/ — MF SGD 구현 참고 (과제 안내 자료)
