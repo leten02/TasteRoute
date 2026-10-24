@@ -40,11 +40,11 @@ class GlobalMean:
 
     def predict(self, u, i):
         """Predicted stars, clipped to 1-5, for each pair (u[k], i[k])."""
-        return np.full(len(u), self.mu)
+        return np.clip(np.full(len(u), self.mu), MIN_STARS, MAX_STARS)
 
     def score_all(self, u):
         """Predicted stars for user u on every item (array of length n_items)."""
-        return np.full(self.n_items, self.mu)
+        return np.clip(np.full(self.n_items, self.mu), MIN_STARS, MAX_STARS)
 
 
 class BiasModel:

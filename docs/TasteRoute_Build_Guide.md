@@ -466,4 +466,4 @@ $$s_{ui} = \frac{\hat r_{ui}-1}{4}\cdot w(d_{ui})$$
 - [x] D2 run_all.py (전체 약 6분)
 - [x] D3 그림 (experiments/figures.py → figures/ 10장)
 - [x] D4 빵집투어 데모 (demo/bakery_tour.py → demo/bakery_tour.html, 1.5초)
-- [x] D5 주석·출처 (모든 함수 docstring, README 참고 문헌)
+- [x] D5 주석·출처 (src/, experiments/, demo/의 모든 함수와 클래스에 docstring, 생성자 인자는 클래스 docstring의 Args에 적음, README 참고 문헌. 테스트 함수는 이름이 설명을 대신하고, 팀원의 data_analysis_preprocessing/은 범위 밖)
