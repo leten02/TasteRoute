@@ -1,7 +1,7 @@
 name: 작업
 description: 구현, 실험, 문서 작업
 title: "feat: "
-labels: ["enhancement"]
+labels: ["✨feat"]
 body:
   - type: textarea
     id: goal

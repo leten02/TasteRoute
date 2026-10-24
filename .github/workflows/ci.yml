@@ -4,6 +4,8 @@ on:
   push:
     branches: [main, develop]
   pull_request:
+    # edited: re-check when the PR title changes
+    types: [opened, synchronize, reopened, edited]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -22,6 +24,20 @@ jobs:
           python-version: "3.12"
       - run: pip install ruff==0.17.2
       - run: ruff check . --output-format github
+
+  commit-convention:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check PR title and commit messages
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 .github/scripts/check_commits.py
 
   test:
     runs-on: ubuntu-latest
