@@ -34,3 +34,22 @@ def test_plan_day_with_no_or_few_candidates():
     assert empty["places"] == [] and empty["route_km"] == 0
     few = plan_day(np.full(3, 4.0), filt, items, (40.0, -75.0), n=5)
     assert sorted(few["places"]) == [0, 1, 2]
+
+
+def test_plan_day_with_learned_visit_model():
+    from tasteroute.geo import user_anchors
+    from tasteroute.models.visit import LogisticRegression, VisitFeatures
+
+    items = pd.DataFrame({
+        "i": range(4), "is_open": 1,
+        "lat": [40.001, 40.002, 40.003, 40.3], "lon": [-75.0] * 4,
+    })
+    train = pd.DataFrame({"u": np.repeat(range(5), 4), "i": np.tile(range(4), 5)})
+    filt = CandidateFilter(items, train, seen=train.iloc[:0], min_support=1)
+    feats = VisitFeatures(items, train, user_anchors(train, items, 5), filt.popularity)
+    # only distance matters, and nearer is better
+    model = LogisticRegression.from_dict({"lam": 0, "mean": [0, 0, 0], "std": [1, 1, 1], "w": [-3.0, 0, 0], "b": 0})
+    plan = plan_day(np.full(4, 4.0), filt, items, (40.0, -75.0), n=3, visit=(model, feats, [0, 3, 4]))
+    assert plan["ranked"] == [0, 1, 2] and 3 not in plan["places"]
+    assert np.isclose(sum(plan["legs_km"]), plan["route_km"])
+    assert len(plan["rec_path"]) == 4
