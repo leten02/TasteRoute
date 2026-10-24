@@ -37,3 +37,8 @@ def test_mf_predictions_in_star_range():
     m = MF(nu, ni, max_epochs=5).fit(train)
     s = m.score_all(0)
     assert s.shape == (ni,) and s.min() >= 1 and s.max() <= 5
+
+
+def test_single_pair_prediction_matches_batch():
+    m = MF(3, 3, f=2, max_epochs=1).fit(pd.DataFrame({"u": [0, 1, 2], "i": [0, 1, 2], "stars": [5.0, 3.0, 1.0]}))
+    assert np.isclose(m.predict(1, 2), m.predict(np.array([1]), np.array([2]))[0])
