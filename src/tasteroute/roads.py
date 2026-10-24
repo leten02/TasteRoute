@@ -31,12 +31,14 @@ class RoadNetwork:
     def __init__(self, lat, lon, u, v, length_km):
         self.lat = np.asarray(lat, dtype=float)
         self.lon = np.asarray(lon, dtype=float)
-        u, v, w = np.asarray(u), np.asarray(v), np.asarray(length_km, dtype=float)
+        u, v = np.asarray(u, dtype=np.int64), np.asarray(v, dtype=np.int64)
+        w = np.asarray(length_km, dtype=float)
         # keep only the shortest of parallel edges between the same two nodes
         n = len(self.lat)
-        key = u.astype(np.int64) * n + v
+        key = u * n + v
         order = np.lexsort((w, key))  # sort by key, then by length
-        first = np.r_[True, key[order][1:] != key[order][:-1]]
+        first = np.ones(len(order), dtype=bool)
+        first[1:] = key[order][1:] != key[order][:-1]
         keep = order[first]
         # csr_matrix((data, (row, col)), shape) builds a sparse matrix from
         # (row, col, value) triples: graph[a, b] = length of the street a -> b.
@@ -141,7 +143,7 @@ class Routes:
     def tour_path(self, order):
         """Street points for visiting point 0, then the points in `order`."""
         stops = [0, *order]
-        out = []
+        out = [(self.lat[0], self.lon[0])] if len(stops) == 1 else []
         for a, b in zip(stops[:-1], stops[1:]):
             out.extend(self.path(a, b)[(1 if out else 0):])
         return out
