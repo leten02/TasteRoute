@@ -1,7 +1,7 @@
 name: 버그
 description: 잘못된 결과, 에러, 실행 문제
 title: "fix: "
-labels: ["bug"]
+labels: ["🐛bug"]
 body:
   - type: textarea
     id: what
