@@ -54,7 +54,7 @@ class MF:
 
         u_all, i_all = train.u.values, train.i.values
         r_all = train.stars.values.astype(float)
-        self.history = []
+        self.history, self.best_epoch = [], None
         best, best_state, bad = np.inf, None, 0
         for epoch in range(1, self.max_epochs + 1):
             order = rng.permutation(len(r_all))
@@ -69,16 +69,18 @@ class MF:
 
             if val is None:
                 continue
-            if rec["val_rmse"] < best - 1e-5:
-                best, bad = rec["val_rmse"], 0
+            # keep a checkpoint at every new minimum, so the restored parameters
+            # always match the lowest val_rmse in history; patience only counts
+            # epochs that improve by less than 1e-5
+            improved = rec["val_rmse"] < best - 1e-5
+            if rec["val_rmse"] < best:
+                best, self.best_epoch = rec["val_rmse"], epoch
                 best_state = (self.b_u.copy(), self.b_i.copy(), self.P.copy(), self.Q.copy())
-            else:
-                bad += 1
-                if bad >= self.patience:
-                    break
+            bad = 0 if improved else bad + 1
+            if bad >= self.patience:
+                break
         if best_state is not None:
             self.b_u, self.b_i, self.P, self.Q = best_state
-            self.best_epoch = min(self.history, key=lambda h: h["val_rmse"])["epoch"]
         return self
 
     def _sgd_epoch(self, us, is_, rs):
@@ -96,7 +98,8 @@ class MF:
             P[u] = pu + dp
 
     def predict(self, u, i):
-        raw = self.mu + self.b_u[u] + self.b_i[i] + np.einsum("ij,ij->i", self.P[u], self.Q[i])
+        # sum over the last axis: works for one (u, i) pair and for arrays of pairs
+        raw = self.mu + self.b_u[u] + self.b_i[i] + np.sum(self.P[u] * self.Q[i], axis=-1)
         return np.clip(raw, MIN_STARS, MAX_STARS)
 
     def score_all(self, u):
