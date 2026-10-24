@@ -44,6 +44,8 @@ def main():
     X, _ = load_item_features()
     train = get_split(r, "train")
     model = CBF(n_users, n_items, X, lam=30).fit(train)
+    # pd.concat([a, b]) stacks two DataFrames row-wise: places rated in train or
+    # val are "seen" and never recommended again
     filt = CandidateFilter(items, train, seen=pd.concat([train, get_split(r, "val")]))
 
     if args.user is not None:
@@ -56,8 +58,13 @@ def main():
     if args.lat is not None and args.lon is not None:
         start = (args.lat, args.lon)
 
+    # Series.str.contains(text, regex=False, na=False): True where the category
+    # string contains `text` literally; places without categories count as False
     mask = items.categories.str.contains(args.category, regex=False, na=False).values
     plan = plan_day(pred, filt, items, start, user=args.user, n=args.n, mask=mask)
+    if not plan["places"]:
+        print(f"no open {args.category!r} place with enough ratings; check the --category spelling")
+        return
 
     print(f"start {start[0]:.4f}, {start[1]:.4f}")
     for step, i in enumerate(plan["places"], start=1):
