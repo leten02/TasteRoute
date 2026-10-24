@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: ko-KR
+
+reviews:
+  profile: chill
+  high_level_summary: true
+  review_status: true
+  poem: false
+  auto_review:
+    enabled: true
+    drafts: false
+    # feature/* is included so stacked PRs (feature -> feature) are reviewed too
+    base_branches:
+      - develop
+      - main
+      - "feature/.*"
+      - "release/.*"
+  path_filters:
+    - "!results/**"
+    - "!figures/**"
+    - "!data_analysis_preprocessing/results/**"
+    - "!data_analysis_preprocessing/figures/**"
+    - "!docs/*.docx"
+  path_instructions:
+    - path: "src/tasteroute/**/*.py"
+      instructions: |
+        머신러닝 수업 과제 코드다. 다음을 중점적으로 본다.
+        - 수식이 맞는지: bias 모델, MF의 SGD 갱신식과 L2 정규화, 유사도와 shrinkage, ridge 회귀, NDCG, Held-Karp
+        - 배열 인덱스와 형상, 0으로 나누기, NaN
+        - 데이터 누수: test 데이터가 학습이나 튜닝에 쓰이지 않는지
+        - 수업에서 다루지 않은 라이브러리 함수에는 무엇을 하는지와 파라미터를 설명하는 주석이 있어야 한다 (과제 요구사항)
+    - path: "experiments/**/*.py"
+      instructions: |
+        하이퍼파라미터는 validation에서만 고르고 test는 마지막에 한 번만 평가하는지, 랜덤 시드가 고정됐는지 본다.
+    - path: "tests/**/*.py"
+      instructions: |
+        테스트가 실제 동작을 검증하는지, 경계 조건(빈 입력, 후보가 적은 경우)이 빠지지 않았는지 본다.
+    - path: "data_analysis_preprocessing/**/*.py"
+      instructions: |
+        필터 순서(반경, 중복 제거, 5-core)와 분할(사용자별 70/15/15)이 문서와 일치하는지 본다.
+
+chat:
+  auto_reply: true

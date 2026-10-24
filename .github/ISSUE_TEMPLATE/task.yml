@@ -1,0 +1,25 @@
+name: 작업
+description: 구현, 실험, 문서 작업
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: 목표
+      description: 이 작업이 끝나면 무엇이 가능해지나요?
+    validations:
+      required: true
+  - type: textarea
+    id: tasks
+    attributes:
+      label: 할 일
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: 완료 기준
+      description: "목표 수치(예: test RMSE), 테스트, 그림 등"
