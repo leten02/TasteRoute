@@ -111,3 +111,10 @@ def test_cached_network_covering_a_box_is_reused(tmp_path):
     assert RoadNetwork._cached_covering(tmp_path, (40.05, 39.99, -74.99, -75.01)) is None  # sticks out north
     got = RoadNetwork.download(40.005, 39.995, -74.995, -75.005, cache_dir=tmp_path)  # no network access needed
     assert len(got.lat) == len(net.lat)
+
+
+def test_cache_only_raises_without_download(tmp_path):
+    import pytest
+
+    with pytest.raises(RuntimeError):
+        RoadNetwork.download(40.01, 39.99, -74.99, -75.01, cache_dir=tmp_path, tries=0)

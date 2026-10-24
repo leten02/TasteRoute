@@ -40,7 +40,8 @@ def plan_day(pred, filt, items, start, user=None, n=6, mask=None, gamma=GAMMA, t
         n: number of places to visit.
         mask: optional boolean array over items, e.g. only bakeries.
         roads: None for straight-line routing, "osm" to download the walking
-            network around the chosen places, or a roads.RoadNetwork.
+            network around the chosen places, a roads.RoadNetwork, or a
+            function (lats, lons) -> RoadNetwork (e.g. to limit download time).
         visit: None for the fixed distance rule, or (model, features, columns)
             to rank with a learned visit model: a fitted
             models.visit.LogisticRegression, a models.visit.VisitFeatures and
@@ -82,8 +83,13 @@ def plan_day(pred, filt, items, start, user=None, n=6, mask=None, gamma=GAMMA, t
     pts_lat, pts_lon = np.r_[start[0], lat[chosen]], np.r_[start[1], lon[chosen]]
     straight = distance_matrix(pts_lat, pts_lon)
     routes = None
-    if roads is not None and len(chosen) > 0:  # nothing to route: no street download
-        net = RoadNetwork.around(pts_lat, pts_lon) if isinstance(roads, str) else roads
+    if roads is not None:
+        if isinstance(roads, str):
+            net = RoadNetwork.around(pts_lat, pts_lon)
+        elif callable(roads):
+            net = roads(pts_lat, pts_lon)
+        else:
+            net = roads
         routes = net.routes(pts_lat, pts_lon)
     D = straight if routes is None else routes.D
 
