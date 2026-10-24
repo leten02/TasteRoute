@@ -30,7 +30,7 @@ from tasteroute.geo import haversine, user_anchors
 from tasteroute.models.cbf import CBF
 from tasteroute.models.visit import LogisticRegression, VisitFeatures
 from tasteroute.pipeline import plan_day
-from tasteroute.roads import WALK_KMH
+from tasteroute.roads import WALK_KMH, RoadNetwork
 
 ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / "results"
@@ -117,8 +117,11 @@ def load_engine():
 
 
 @st.cache_data(show_spinner=False)
-def run_plan(user, start, category, n, method, tau, walking):
-    """plan_day for these choices (cached per combination)."""
+def run_plan(user, start, category, n, method, tau, walking, cache_only=False):
+    """plan_day for these choices (cached per combination).
+
+    cache_only: use only street networks already on disk (after a failed download).
+    """
     eng = load_engine()
     items, cbf = eng["items"], eng["cbf"]
     if user is None:
@@ -129,8 +132,13 @@ def run_plan(user, start, category, n, method, tau, walking):
     if category:
         mask = items.categories.str.contains(category, regex=False, na=False).values
     visit = eng["learned"] if method == "learned" else None
+
+    def streets(lats, lons):
+        # one quick try: a busy OpenStreetMap server should not freeze the app
+        return RoadNetwork.around(lats, lons, tries=0 if cache_only else 1, timeout=25)
+
     plan = plan_day(pred, eng["filt"], items, start, user=user, n=n, mask=mask, tau=tau,
-                    roads="osm" if walking else None, visit=visit)
+                    roads=streets if walking else None, visit=visit)
     plan["pred"] = {int(i): float(pred[i]) for i in plan["ranked"]}
     return plan
 
@@ -185,11 +193,22 @@ with st.sidebar:
 
 # ---------------------------------------------------------------- tab 1: plan
 with tab_plan:
+    # after one failed street download, stay on straight lines until the user retries
+    if walking and st.session_state.get("osm_failed"):
+        c1, c2 = st.columns([5, 1])
+        c1.info("OpenStreetMap 서버가 응답하지 않아 직선 경로로 보여드리고 있어요. "
+                "이미 받아 둔 지역은 도보 경로로 나와요.")
+        if c2.button("도보 경로 다시 시도"):
+            st.session_state.osm_failed = False
+            st.rerun()
     try:
         with st.spinner("코스를 짜는 중... (새 지역의 도로망은 처음 한 번 받아요)"):
-            plan = run_plan(user, start, category, n, method, tau, walking)
-    except RuntimeError as e:  # street download failed
-        st.warning(f"{e}. 직선 경로로 보여드려요.")
+            plan = run_plan(user, start, category, n, method, tau, walking,
+                            cache_only=bool(st.session_state.get("osm_failed")))
+    except RuntimeError:  # street download failed, or not cached while the server is down
+        if not st.session_state.get("osm_failed"):
+            st.session_state.osm_failed = True
+            st.warning("OpenStreetMap에서 이 지역 도로망을 받지 못해 직선 경로로 보여드려요.")
         plan = run_plan(user, start, category, n, method, tau, False)
         walking = False
 
