@@ -59,6 +59,17 @@ def test_unreachable_pair_falls_back_to_straight_line():
     assert len(r.path(0, 1)) == 2
 
 
+def test_network_without_streets():
+    net = RoadNetwork([40.0, 40.001], [-75.0, -75.0], [], [], [])
+    r = net.routes([40.0, 40.001], [-75.0, -75.0])
+    assert not r.connected[0, 1] and np.isclose(r.D[0, 1], haversine(40.0, -75.0, 40.001, -75.0))
+
+
+def test_tour_path_with_no_places_keeps_the_start():
+    net, lat, lon = _grid()
+    assert net.routes(lat[[0]], lon[[0]]).tour_path([]) == [(lat[0], lon[0])]
+
+
 def test_parallel_edges_keep_the_shortest():
     net = RoadNetwork([40.0, 40.001], [-75.0, -75.0], [0, 0, 1], [1, 1, 0], [0.5, 0.2, 0.2])
     assert np.isclose(net.graph[0, 1], 0.2)
