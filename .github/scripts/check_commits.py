@@ -1,11 +1,11 @@
 """Check the PR title and commit subjects against the commit convention (CONTRIBUTING.md).
 
 Header format: <type>(<scope>): <subject>, scope optional, subject at most 50
-characters and not ending with a period. Merge and revert commits are skipped.
-For release PRs (release/* -> main) only the title is checked: their commits
-were already checked when they entered develop. Hotfix PRs are checked in full.
+characters and not ending with a period. Merge and revert commits are skipped,
+and so are commits already on develop (checked when they entered it), so a
+release PR into main is judged only by its title and its own new commits.
 
-Usage (CI): PR_TITLE=... HEAD_REF=<head branch> BASE=<sha> HEAD=<sha> python3 .github/scripts/check_commits.py
+Usage (CI): PR_TITLE=... BASE=<sha> HEAD=<sha> python3 .github/scripts/check_commits.py
 """
 import os
 import re
@@ -15,6 +15,7 @@ import sys
 TYPES = ("feat", "fix", "hotfix", "docs", "style", "refactor", "test", "chore")
 HEADER = re.compile(rf"^(?:{'|'.join(TYPES)})(?:\([a-z0-9._/-]+\))?: (?P<subject>.+)$")
 MAX_SUBJECT = 50
+DEVELOP = "refs/remotes/origin/develop"
 
 
 def problems(header):
@@ -34,13 +35,14 @@ def problems(header):
 def main():
     """Print a GitHub annotation per violation and exit 1 if there is any."""
     checks = [("PR 제목", os.environ["PR_TITLE"])]
-    if os.environ.get("HEAD_REF", "").startswith("release/"):
-        log = ""
-    else:
-        log = subprocess.run(
-            ["git", "log", "--no-merges", "--format=%h %s", f"{os.environ['BASE']}..{os.environ['HEAD']}"],
-            capture_output=True, text=True, check=True,
-        ).stdout
+    rev_range = [f"{os.environ['BASE']}..{os.environ['HEAD']}"]
+    has_develop = subprocess.run(["git", "rev-parse", "--verify", "-q", DEVELOP], capture_output=True).returncode == 0
+    if has_develop:
+        rev_range += ["--not", DEVELOP]
+    log = subprocess.run(
+        ["git", "log", "--no-merges", "--format=%h %s", *rev_range],
+        capture_output=True, text=True, check=True,
+    ).stdout
     for line in log.splitlines():
         sha, header = line.split(" ", 1)
         if not header.startswith("Revert "):

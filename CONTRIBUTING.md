@@ -101,7 +101,7 @@ Related to #6
 
 커밋은 파일 단위가 아니라 **작업 단위**로 나눈다. 의미 있는 변경 하나를 커밋 하나로 묶는다.
 
-`commit-convention` CI가 PR 제목과 PR 안의 커밋 제목을 검사한다 (merge, revert 커밋은 제외). release PR은 커밋이 이미 develop에서 검사됐으므로 PR 제목만 본다 (hotfix PR은 커밋까지 검사). 로컬에서 미리 확인하려면
+`commit-convention` CI가 PR 제목과 PR 안의 커밋 제목을 검사한다 (merge, revert 커밋은 제외). 이미 develop에 들어간 커밋은 그때 검사됐으므로 건너뛴다 (release, hotfix PR은 새 커밋만 검사). 로컬에서 미리 확인하려면
 
 ```bash
 PR_TITLE="feat(mf): ..." BASE=origin/develop HEAD=HEAD python3 .github/scripts/check_commits.py
