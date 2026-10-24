@@ -13,7 +13,7 @@ dependencies = ["numpy", "pandas", "scipy", "matplotlib"]
 
 [project.optional-dependencies]
 dev = ["jupyter", "pytest"]
-demo = ["folium"]
+demo = ["folium", "osmnx"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
