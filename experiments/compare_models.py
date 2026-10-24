@@ -45,6 +45,7 @@ def bootstrap_rmse(sse, cnt, rng):
 
 
 def main():
+    """Run this step and write its output (see the module docstring)."""
     r = load_ratings()
     n_users, n_items = n_users_items(r)
     X, _ = load_item_features()

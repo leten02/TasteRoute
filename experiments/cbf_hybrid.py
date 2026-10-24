@@ -24,6 +24,7 @@ MF_BEST = {"f": 10, "lam": 0.1}  # from experiments/mf.py
 
 
 def main():
+    """Run this step and write its output (see the module docstring)."""
     r = load_ratings()
     n_users, n_items = n_users_items(r)
     X, _ = load_item_features()
