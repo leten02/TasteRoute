@@ -67,7 +67,8 @@ def main():
     }
 
     rng = np.random.default_rng(SEED)
-    sse_bias = None
+    # bias errors first, so every other model (Global mean included) gets a p-value
+    sse_bias, _ = per_user_sse(warm, bias.predict(warm.u.values, warm.i.values))
     out = {"warm": {}, "cold": {}}
     for name, m in models.items():
         pred = m.predict(warm.u.values, warm.i.values)
@@ -78,13 +79,12 @@ def main():
             "mae": mae(warm.stars.values, pred),
             "rmse_ci95": bootstrap_rmse(sse, cnt, rng),
         }
-        if name == "Bias":
-            sse_bias = sse
-        elif sse_bias is not None:
+        if name != "Bias":
             # stats.ttest_rel(a, b): paired t-test on matched samples a[k], b[k]
             # (here the same user's mean squared error under two models).
-            t = stats.ttest_rel(sse[users] / cnt[users], sse_bias[users] / cnt[users])
-            res["vs_bias_p"] = float(t.pvalue)
+            # Undefined p (e.g. a single user) is stored as null, not NaN.
+            p = float(stats.ttest_rel(sse[users] / cnt[users], sse_bias[users] / cnt[users]).pvalue)
+            res["vs_bias_p"] = p if np.isfinite(p) else None
         out["warm"][name] = res
 
         out["cold"][name] = {}
@@ -94,12 +94,13 @@ def main():
 
         ci = res["rmse_ci95"]
         cold = "  ".join(f"m={k}: {v:.4f}" for k, v in out["cold"][name].items())
-        p = f"  p vs bias {res['vs_bias_p']:.3g}" if "vs_bias_p" in res else ""
+        p = f"  p vs bias {res['vs_bias_p']:.3g}" if res.get("vs_bias_p") is not None else ""
         print(f"{name:<12} RMSE {res['rmse']:.4f} [{ci[0]:.4f}, {ci[1]:.4f}]  MAE {res['mae']:.4f}{p}  | cold {cold}",
               flush=True)
 
     (ROOT / "results").mkdir(exist_ok=True)
-    (ROOT / "results" / "model_compare.json").write_text(json.dumps(out, indent=1))
+    # allow_nan=False: fail loudly instead of writing NaN, which is not valid JSON
+    (ROOT / "results" / "model_compare.json").write_text(json.dumps(out, indent=1, allow_nan=False))
 
 
 if __name__ == "__main__":
