@@ -226,8 +226,11 @@ def t3_gap():
 
 
 def d1_popularity():
-    d = load("popularity")["test"]
-    keys = ["popularity(-)", "popularity(-) + distance", "blend(5)", "blend(5) + distance"]
+    pop = load("popularity")
+    d = pop["test"]
+    # gamma chosen on validation by experiments/popularity.py (same rule), never re-picked on test
+    gamma = max((v for v in pop["val"] if v["method"] == "blend"), key=lambda v: v["NDCG@10"])["param"]
+    keys = ["popularity(-)", "popularity(-) + distance", f"blend({gamma})", f"blend({gamma}) + distance"]
     labels = ["Popularity", "Popularity\n+ distance", "Hybrid blend", "Hybrid blend\n+ distance"]
     vals = [d[k]["P@10"] for k in keys]
     fig, ax = plt.subplots(figsize=(7, 4))
@@ -239,7 +242,8 @@ def d1_popularity():
     ax.text(-0.3, raw + 0.0003, f"Hybrid alone {raw:.4f}", ha="left", color=INK2, fontsize=10)
     ax.set_ylabel("Precision@10")
     titled(fig, "Popularity and distance carry the ranking signal",
-           "Hybrid blended with log popularity (gamma = 5) vs popularity alone · 3,000 test users")
+           f"Hybrid blended with log popularity (gamma = {gamma}, chosen on validation) vs popularity alone "
+           "· 3,000 test users")
     save(fig, "D1_popularity_blend")
 
 
