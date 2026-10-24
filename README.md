@@ -63,6 +63,7 @@ experiments/                  실험 스크립트 (결과는 results/, 그림은
 results/                      실험 결과 JSON
 figures/                      모델·랭킹·동선 그림
 demo/                         필라델피아 빵집투어 지도 데모
+app/                          지도 중심 대시보드 (Streamlit, 로컬 전용)
 tests/                        단위 테스트 (pytest)
 notebooks/                    탐색용 노트북 (선택)
 docs/                         제안서, 코드 구현 계획, 구현 가이드, 발표 개요
@@ -90,7 +91,14 @@ pytest
 python demo/bakery_tour.py            # 새 방문자
 python demo/bakery_tour.py --user 1458  # 데이터셋 사용자 맞춤 (전처리가 매긴 0부터의 내부 번호, Yelp user_id 아님)
 python demo/bakery_tour.py --straight   # 다운로드 없이 직선 연결
+
+# 5. 대시보드: 조건을 바꾸며 코스, 실험 결과, 데이터를 한 화면에서 (http://localhost:8501)
+pip install -e ".[app]"
+python -m tasteroute.roads              # (선택) 도심 보행 도로망을 한 번에 받아 두기
+streamlit run app/dashboard.py
 ```
+
+대시보드 화면 구성과 동작은 [docs/Dashboard.md](docs/Dashboard.md)에 정리했다. Yelp 데이터를 읽기 때문에 `localhost`에서만 열리고, 공개 서버에 배포하지 않는다.
 
 실험을 하나씩 돌리려면 `python experiments/<이름>.py` (baseline, mf, item_knn, cbf_hybrid, compare_models, ranking, route, popularity, learned_distance, figures).
 
@@ -146,6 +154,7 @@ python demo/bakery_tour.py --straight   # 다운로드 없이 직선 연결
 - [구현 가이드](docs/TasteRoute_Build_Guide.md)
 - [실제 도보 길찾기](docs/Walking_Route.md)
 - [거리 민감도 학습 (로지스틱 회귀)](docs/ML_Learned_Distance.md)
+- [대시보드](docs/Dashboard.md)
 - [발표 개요](docs/TasteRoute_Slides_Outline.md)
 - [데이터 분석과 전처리](data_analysis_preprocessing/README.md)
 
