@@ -87,3 +87,16 @@ def test_plan_day_routes_on_streets():
 
     flat = plan_day(np.full(3, 4.0), filt, items, (lat[0], lon[0]), n=3)
     assert np.isclose(flat["route_km"], flat["straight_km"]) and len(flat["path"]) == 4
+
+
+def test_cached_network_covering_a_box_is_reused(tmp_path):
+    net, lat, lon = _grid()
+    box = (40.01, 39.99, -74.99, -75.01)
+    np.savez_compressed(tmp_path / "walk_big.npz", lat=net.lat, lon=net.lon, u=[0], v=[1], length_km=[0.1],
+                        box=np.array(box))
+    np.savez_compressed(tmp_path / "walk_old.npz", lat=net.lat, lon=net.lon, u=[0], v=[1], length_km=[0.1])  # no box
+    inside = RoadNetwork._cached_covering(tmp_path, (40.005, 39.995, -74.995, -75.005))
+    assert inside is not None and inside.name == "walk_big.npz"
+    assert RoadNetwork._cached_covering(tmp_path, (40.05, 39.99, -74.99, -75.01)) is None  # sticks out north
+    got = RoadNetwork.download(40.005, 39.995, -74.995, -75.005, cache_dir=tmp_path)  # no network access needed
+    assert len(got.lat) == len(net.lat)

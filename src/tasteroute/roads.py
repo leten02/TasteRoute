@@ -6,8 +6,11 @@ nodes, street segments are edges weighted by length) and the distance between
 two places is the shortest path on it, found with Dijkstra's algorithm.
 
 The network is downloaded once per area with OSMnx and cached under data/osm/
-(OpenStreetMap data, ODbL; not committed). Building a RoadNetwork from arrays
-needs no download, which is how the tests use it.
+(OpenStreetMap data, ODbL; not committed). A cached network is reused for any
+request whose box it covers, so downloading Center City once up front
+(python -m tasteroute.roads) serves every route there without waiting.
+Building a RoadNetwork from arrays needs no download, which is how the tests
+use it.
 """
 import hashlib
 import time
@@ -23,6 +26,8 @@ CACHE_DIR = Path(__file__).resolve().parents[2] / "data" / "osm"
 KM_PER_DEG_LAT = 111.32
 WALK_KMH = 4.5
 DOWNLOAD_TRIES = 3
+# Center City Philadelphia plus University City and Fishtown edges: (north, south, east, west)
+CENTER_CITY_BOX = (39.978, 39.928, -75.128, -75.205)
 
 
 class RoadNetwork:
@@ -55,10 +60,11 @@ class RoadNetwork:
         """
         cache_dir = Path(cache_dir)
         box = tuple(round(x, 4) for x in (north, south, east, west))
-        path = cache_dir / f"walk_{hashlib.md5(str(box).encode()).hexdigest()[:12]}.npz"
-        if path.exists():
-            z = np.load(path)
+        cached = cls._cached_covering(cache_dir, box)
+        if cached is not None:
+            z = np.load(cached)
             return cls(z["lat"], z["lon"], z["u"], z["v"], z["length_km"])
+        path = cache_dir / f"walk_{hashlib.md5(str(box).encode()).hexdigest()[:12]}.npz"
 
         import osmnx as ox  # optional dependency: pip install -e ".[demo]"
 
@@ -81,8 +87,24 @@ class RoadNetwork:
         edges = np.array([(index[a], index[b], d["length"] / 1000) for a, b, d in G.edges(data=True)])
         u, v, w = edges[:, 0].astype(int), edges[:, 1].astype(int), edges[:, 2]
         cache_dir.mkdir(parents=True, exist_ok=True)
-        np.savez_compressed(path, lat=lat, lon=lon, u=u, v=v, length_km=w)
+        np.savez_compressed(path, lat=lat, lon=lon, u=u, v=v, length_km=w, box=np.array(box))
         return cls(lat, lon, u, v, w)
+
+    @staticmethod
+    def _cached_covering(cache_dir, box):
+        """Smallest cached network file whose box contains `box`, or None."""
+        north, south, east, west = box
+        best = None
+        for f in sorted(Path(cache_dir).glob("walk_*.npz")):
+            with np.load(f) as z:  # np.load on .npz reads each array only when accessed
+                if "box" not in z.files:
+                    continue
+                n, s, e, w = z["box"]
+            if n >= north and s <= south and e >= east and w <= west:
+                area = (n - s) * (e - w)
+                if best is None or area < best[0]:
+                    best = (area, f)
+        return None if best is None else best[1]
 
     @classmethod
     def around(cls, lats, lons, margin_km=0.5, cache_dir=CACHE_DIR):
@@ -147,3 +169,12 @@ class Routes:
         for a, b in zip(stops[:-1], stops[1:]):
             out.extend(self.path(a, b)[(1 if out else 0):])
         return out
+
+
+if __name__ == "__main__":
+    # one-time download of Center City (a few minutes), so the dashboard and the
+    # demo never wait for OpenStreetMap inside it
+    t = time.time()
+    net = RoadNetwork.download(*CENTER_CITY_BOX)
+    print(f"Center City walking network: {len(net.lat):,} nodes, {net.graph.nnz:,} street segments "
+          f"({time.time() - t:.0f}s), cached in {CACHE_DIR}")
