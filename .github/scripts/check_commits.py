@@ -2,10 +2,10 @@
 
 Header format: <type>(<scope>): <subject>, scope optional, subject at most 50
 characters and not ending with a period. Merge and revert commits are skipped.
-For PRs into main (release, hotfix) only the title is checked: their commits
-were already checked when they entered develop.
+For release PRs (release/* -> main) only the title is checked: their commits
+were already checked when they entered develop. Hotfix PRs are checked in full.
 
-Usage (CI): PR_TITLE=... BASE_REF=<base branch> BASE=<sha> HEAD=<sha> python3 .github/scripts/check_commits.py
+Usage (CI): PR_TITLE=... HEAD_REF=<head branch> BASE=<sha> HEAD=<sha> python3 .github/scripts/check_commits.py
 """
 import os
 import re
@@ -34,7 +34,7 @@ def problems(header):
 def main():
     """Print a GitHub annotation per violation and exit 1 if there is any."""
     checks = [("PR 제목", os.environ["PR_TITLE"])]
-    if os.environ.get("BASE_REF") == "main":
+    if os.environ.get("HEAD_REF", "").startswith("release/"):
         log = ""
     else:
         log = subprocess.run(
