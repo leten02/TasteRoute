@@ -30,6 +30,7 @@ CITY_HALL = (39.9526, -75.1636)
 
 
 def main():
+    """Run this step and write its output (see the module docstring)."""
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--user", type=int, help="dataset user id; omit for a new visitor")
     ap.add_argument("--lat", type=float, help="start latitude (default: user's anchor or City Hall)")
