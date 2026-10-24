@@ -260,10 +260,55 @@ def d1_popularity():
     save(fig, "D1_popularity_blend")
 
 
+def l1_learned():
+    """L1: NDCG@10 of the fixed distance rule vs the learned visit model (issue #48)."""
+    d = load("learned_distance")
+    test = d["test"]
+    fixed200 = next(k for k in test if k.startswith("blend + fixed distance (top 200"))
+    keys = ["popularity + fixed distance", "blend + fixed distance (top 50)", fixed200,
+            "learned (no personal radius)", "learned (with personal radius)"]
+    labels = ["Popularity\n+ rule", "Blend + rule\ntop 50", "Blend + rule\ntop 200",
+              "Learned\nno radius", "Learned\n+ radius"]
+    vals = [test[k]["NDCG@10"] for k in keys]
+    fig, ax = plt.subplots(figsize=(8, 4.2))
+    ax.bar(labels, vals, color=[GRID, GRID, GRID, ORANGE, ORANGE], width=0.6)
+    for x, k in enumerate(keys):
+        ax.text(x, vals[x] + 0.0004, f"{vals[x]:.4f}", ha="center", fontsize=10, color=INK)
+        ax.text(x, 0.0012, f"cov {test[k]['coverage'] * 100:.2f}%", ha="center", fontsize=9, color=INK2)
+    ax.set_ylabel("NDCG@10")
+    ax.set_ylim(0, max(vals) * 1.15)
+    p = d["paired_vs_fixed"][fixed200]["learned (with personal radius)"]["p"]
+    titled(fig, "A learned distance model ties the tuned rule with more variety",
+           f"Logistic regression on distance, travel radius, rating, popularity · vs tuned rule p = {p:.2f} "
+           "· cov = catalog coverage · 3,000 test users")
+    save(fig, "L1_learned_vs_fixed")
+
+
+def l2_distance_curve():
+    """L2: the learned distance penalty in popularity terms, by travel radius."""
+    m = load("learned_distance")["model"]
+    c = m["curve"]
+    km = c["km"]
+    fig, ax = plt.subplots(figsize=(8, 4.2))
+    for (radius, ys), color in zip(c["popularity_needed"].items(), [ORANGE, INK2, BLUE]):
+        ax.plot(km, ys, color=color, lw=2)
+        ax.text(km[-1] + 0.15, ys[-1], f"radius {radius} km", va="center", color=INK)
+    ax.set_xlim(0, 12.5)
+    ax.set_yscale("log")
+    ax.set_yticks([1, 2, 5, 10, 20])
+    ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}x"))
+    ax.yaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
+    ax.set_xlabel("Distance from the user's anchor (km)")
+    ax.set_ylabel("Popularity needed vs a place at 0 km")
+    titled(fig, "Far places must be far more popular, less so for explorers",
+           "Learned logistic model · travel radius = median distance of the user's past places "
+           f"(median user {m['median_radius_km']:.1f} km)")
+    save(fig, "L2_learned_distance_curve")
+
 def main():
     """Run this step and write its output (see the module docstring)."""
     for f in (v1_rmse, v5_cold, m1_knn, m3_mf_curve, m4_mf_grid, m5_blend, r2_pareto, t2_timing, t3_gap,
-              d1_popularity):
+              d1_popularity, l1_learned, l2_distance_curve):
         f()
 
 
