@@ -34,6 +34,7 @@ class CBF:
         self.lam, self.bias_lam = lam, bias_lam
 
     def fit(self, train):
+        """Learn the parameters from training ratings (columns u, i, stars); returns self."""
         u, i = train.u.values, train.i.values
         self.bias = BiasModel(self.n_users, self.n_items, lam=self.bias_lam).fit(train)
         y = train.stars.values - self.bias.baseline(u, i)
@@ -60,11 +61,13 @@ class CBF:
         return self
 
     def predict(self, u, i):
+        """Predicted stars, clipped to 1-5, for each pair (u[k], i[k])."""
         u, i = np.asarray(u), np.asarray(i)
         # row-wise dot product x_i . theta_u for each (u, i) pair
         content = np.asarray(self.X[i].multiply(self.theta[u]).sum(axis=1)).ravel()
         return np.clip(self.bias.baseline(u, i) + content, MIN_STARS, MAX_STARS)
 
     def score_all(self, u):
+        """Predicted stars for user u on every item (array of length n_items)."""
         base = self.bias.mu + self.bias.b_u[u] + self.bias.b_i
         return np.clip(base + self.X @ self.theta[u], MIN_STARS, MAX_STARS)

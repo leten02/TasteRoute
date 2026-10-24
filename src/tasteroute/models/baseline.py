@@ -26,14 +26,17 @@ class GlobalMean:
         self.n_users, self.n_items = n_users, n_items
 
     def fit(self, train):
+        """Learn the parameters from training ratings (columns u, i, stars); returns self."""
         self.mu = float(train.stars.mean())
         return self
 
     def predict(self, u, i):
-        return np.full(len(u), self.mu)
+        """Predicted stars, clipped to 1-5, for each pair (u[k], i[k])."""
+        return np.clip(np.full(len(u), self.mu), MIN_STARS, MAX_STARS)
 
     def score_all(self, u):
-        return np.full(self.n_items, self.mu)
+        """Predicted stars for user u on every item (array of length n_items)."""
+        return np.clip(np.full(self.n_items, self.mu), MIN_STARS, MAX_STARS)
 
 
 class BiasModel:
@@ -59,6 +62,7 @@ class BiasModel:
         self.lam, self.n_iter = lam, n_iter
 
     def fit(self, train):
+        """Learn the parameters from training ratings (columns u, i, stars); returns self."""
         u, i = train.u.values, train.i.values
         self.mu = float(train.stars.mean())
         y = train.stars.values - self.mu
@@ -78,7 +82,9 @@ class BiasModel:
         return self.mu + self.b_u[u] + self.b_i[i]
 
     def predict(self, u, i):
+        """Predicted stars, clipped to 1-5, for each pair (u[k], i[k])."""
         return np.clip(self.baseline(u, i), MIN_STARS, MAX_STARS)
 
     def score_all(self, u):
+        """Predicted stars for user u on every item (array of length n_items)."""
         return np.clip(self.mu + self.b_u[u] + self.b_i, MIN_STARS, MAX_STARS)
