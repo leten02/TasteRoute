@@ -463,7 +463,7 @@ $$s_{ui} = \frac{\hat r_{ui}-1}{4}\cdot w(d_{ui})$$
 - [x] C1 route.py (재현: NN+2-opt 최적 81.9%, 평균 차이 0.9%, 추천 순서 +26.3%, Held-Karp N=8 0.9ms)
 - [x] C2 tests (25개 통과)
 - [x] D1 인기도 반영 후보 (blend γ=5 + 거리: P@10 0.0102, NDCG@10 0.0340. 인기순+거리 0.0100 / 0.0337과 사실상 동률 → 모델 기여는 잡음 수준)
-- [ ] D2 run_all.py
-- [ ] D3 노트북 그림
+- [x] D2 run_all.py (전체 약 6분)
+- [x] D3 그림 (experiments/figures.py → figures/ 10장)
 - [ ] D4 빵집투어 데모
 - [ ] D5 주석·출처
