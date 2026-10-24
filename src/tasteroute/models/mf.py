@@ -98,9 +98,11 @@ class MF:
             P[u] = pu + dp
 
     def predict(self, u, i):
+        """Predicted stars, clipped to 1-5, for each pair (u[k], i[k])."""
         # sum over the last axis: works for one (u, i) pair and for arrays of pairs
         raw = self.mu + self.b_u[u] + self.b_i[i] + np.sum(self.P[u] * self.Q[i], axis=-1)
         return np.clip(raw, MIN_STARS, MAX_STARS)
 
     def score_all(self, u):
+        """Predicted stars for user u on every item (array of length n_items)."""
         return np.clip(self.mu + self.b_u[u] + self.b_i + self.Q @ self.P[u], MIN_STARS, MAX_STARS)

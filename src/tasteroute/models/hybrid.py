@@ -44,11 +44,13 @@ class Hybrid:
         return n / (n + self.kappa)
 
     def predict(self, u, i):
+        """Predicted stars, clipped to 1-5, for each pair (u[k], i[k])."""
         u = np.asarray(u)
         a = self.weight(u)
         blend = a * self.cf.predict(u, i) + (1 - a) * self.cbf.predict(u, i)
         return np.clip(blend, MIN_STARS, MAX_STARS)
 
     def score_all(self, u):
+        """Predicted stars for user u on every item (array of length n_items)."""
         a = float(self.weight(np.array([u]))[0])
         return a * self.cf.score_all(u) + (1 - a) * self.cbf.score_all(u)
