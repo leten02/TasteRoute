@@ -443,7 +443,7 @@ $$s_{ui} = \frac{\hat r_{ui}-1}{4}\cdot w(d_{ui})$$
 - [x] A5 item_knn.py — val 1.140 (재현: β=25에서 1.1341. β까지 탐색하면 β=0이 최적, val 1.1134 / test 1.1212)
 - [x] A6 cbf.py — val 1.043 (재현: λc=30, val 1.0441 / test 1.0508)
 - [x] A7 hybrid.py — val 1.043 (재현: α=0.1 val 1.0441, κ=100 test 1.0508)
-- [ ] A8 compare_models.py — V1, V5
+- [x] A8 compare_models.py — V1, V5 (Bias·CBF·Hybrid 1.0508 동률, MF 1.0521, kNN 1.1212, 전체 평균 1.1898)
 - [ ] B1 랭킹 지표
 - [ ] B2 candidates.py — 인기순 P@10 0.0095
 - [ ] B3 geo.py
