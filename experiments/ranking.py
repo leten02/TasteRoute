@@ -56,7 +56,12 @@ def score_lists(lists, relevant, dists):
     return out
 
 
-def main():
+def setup():
+    """Shared state for the ranking and route experiments.
+
+    Returns a dict with the sampled users, their relevant test places, the
+    candidate filter, anchors, a dist(u, items) function and the fitted models.
+    """
     r = load_ratings()
     items = load_items()
     n_users, n_items = n_users_items(r)
@@ -68,9 +73,7 @@ def main():
     rel = test[test.stars >= 4].groupby("u").i.apply(set)
     rng = np.random.default_rng(SEED)
     users = np.sort(rng.choice(rel.index.values, size=N_SAMPLE, replace=False))
-    relevant = [rel[u] for u in users]
 
-    filt = CandidateFilter(items, train, seen=pd.concat([train, get_split(r, "val")]))
     anchors = user_anchors(train, items, n_users)
     lat, lon = items.lat.values, items.lon.values
 
@@ -80,12 +83,23 @@ def main():
     print("fitting models", flush=True)
     mf = MF(n_users, n_items, f=10, lam=0.1).fit(train, val)
     cbf = CBF(n_users, n_items, X, lam=30).fit(train)
-    models = {
-        "Bias": BiasModel(n_users, n_items, lam=5).fit(train),
-        "MF": mf,
-        "CBF": cbf,
-        "Hybrid": Hybrid(mf, cbf, kappa=100).fit(train),
+    return {
+        "items": items, "train": train, "n_items": n_items, "users": users,
+        "relevant": [rel[u] for u in users], "anchors": anchors, "dist": dist,
+        "filt": CandidateFilter(items, train, seen=pd.concat([train, get_split(r, "val")])),
+        "models": {
+            "Bias": BiasModel(n_users, n_items, lam=5).fit(train),
+            "MF": mf,
+            "CBF": cbf,
+            "Hybrid": Hybrid(mf, cbf, kappa=100).fit(train),
+        },
     }
+
+
+def main():
+    ctx = setup()
+    users, relevant, filt, dist, models = ctx["users"], ctx["relevant"], ctx["filt"], ctx["dist"], ctx["models"]
+    n_items = ctx["n_items"]
 
     out = {"n_users": N_SAMPLE, "models": {}, "rerank": []}
     pop = filt.popularity
