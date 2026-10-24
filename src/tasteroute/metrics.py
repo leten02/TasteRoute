@@ -1,6 +1,6 @@
 """Evaluation metrics.
 
-Rating error: RMSE, MAE. Ranking metrics are added with the re-ranking stage.
+Rating error: RMSE, MAE. Top-N ranking: Precision, Recall, HitRate, NDCG at K.
 """
 import numpy as np
 
@@ -41,3 +41,34 @@ def evaluate(model, df):
     """
     pred = model.predict(df.u.values, df.i.values)
     return {"rmse": rmse(df.stars.values, pred), "mae": mae(df.stars.values, pred), "n": len(df)}
+
+
+# --- Top-N ranking (one user at a time) -------------------------------------
+# ranked: item ids in recommended order; relevant: set of the user's relevant
+# test items (test rating >= 4). Scores are averaged over users by the caller.
+
+
+def precision_at_k(ranked, relevant, k):
+    """Share of the top-k recommendations that are relevant: |L ∩ Rel| / k."""
+    return len(set(ranked[:k]) & relevant) / k
+
+
+def recall_at_k(ranked, relevant, k):
+    """Share of the relevant items found in the top k: |L ∩ Rel| / |Rel|."""
+    return len(set(ranked[:k]) & relevant) / len(relevant) if relevant else 0.0
+
+
+def hit_rate_at_k(ranked, relevant, k):
+    """1 if at least one relevant item is in the top k, else 0."""
+    return float(bool(set(ranked[:k]) & relevant))
+
+
+def ndcg_at_k(ranked, relevant, k):
+    """Normalized discounted cumulative gain with binary relevance.
+
+    DCG = sum_{pos=1..k} rel_pos / log2(pos + 1); IDCG is the DCG of a list
+    with all relevant items on top (at most k of them).
+    """
+    dcg = sum(1.0 / np.log2(pos + 2) for pos, item in enumerate(ranked[:k]) if item in relevant)
+    idcg = sum(1.0 / np.log2(pos + 2) for pos in range(min(len(relevant), k)))
+    return dcg / idcg if idcg > 0 else 0.0
