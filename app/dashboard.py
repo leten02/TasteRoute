@@ -353,7 +353,7 @@ with tab_results:
                 ch = bars + vals
                 m = ld["model"]
                 chart_card("거리 민감도 학습 (로지스틱 회귀)",
-                           f"튜닝한 규칙과 같은 정확도에 추천이 더 다양해요. 1km 더 멀면 인기도 {m['popularity_factor_per_km_at_1km']:.2f}배여야 상쇄.",
+                           f"튜닝한 규칙과 유의한 차이는 없고(p = 0.36) 커버리지는 더 넓어요. 1km 더 멀면 인기도 {m['popularity_factor_per_km_at_1km']:.2f}배여야 상쇄.",
                            ch)
         with c4:
             pu = pd.DataFrame(rt["per_user"])
