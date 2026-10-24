@@ -27,6 +27,7 @@ TAU, DECAY = 2.0, "exp"
 
 
 def route_matrix(anchor, items, places):
+    """(N+1) x (N+1) distance matrix: the start point first, then the places."""
     lats = np.r_[anchor[0], items.lat.values[places]]
     lons = np.r_[anchor[1], items.lon.values[places]]
     return distance_matrix(lats, lons)
@@ -54,6 +55,7 @@ def timing(rng):
 
 
 def main():
+    """Run this step and write its output (see the module docstring)."""
     ctx = setup()
     items, anchors, dist, filt = ctx["items"], ctx["anchors"], ctx["dist"], ctx["filt"]
     hybrid = ctx["models"]["Hybrid"]

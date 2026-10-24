@@ -30,6 +30,7 @@ TAU, DECAY = 2.0, "exp"
 
 
 def run(users, relevant, filt, dist, model, method, param, n_items, distance=False):
+    """Score one candidate method for these users; returns averaged ranking metrics."""
     lists, dists = [], []
     for u in users:
         pred = model.score_all(u)
@@ -54,6 +55,7 @@ def run(users, relevant, filt, dist, model, method, param, n_items, distance=Fal
 
 
 def main():
+    """Run this step and write its output (see the module docstring)."""
     ctx = setup()
     hybrid, dist, items, train = ctx["models"]["Hybrid"], ctx["dist"], ctx["items"], ctx["train"]
     n_items = ctx["n_items"]

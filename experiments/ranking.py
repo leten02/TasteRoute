@@ -78,6 +78,7 @@ def setup():
     lat, lon = items.lat.values, items.lon.values
 
     def dist(u, cand):
+        """Distance (km) from user u's anchor to each place in cand."""
         return haversine(anchors[u, 0], anchors[u, 1], lat[cand], lon[cand])
 
     print("fitting models", flush=True)
@@ -97,6 +98,7 @@ def setup():
 
 
 def main():
+    """Run this step and write its output (see the module docstring)."""
     ctx = setup()
     users, relevant, filt, dist, models = ctx["users"], ctx["relevant"], ctx["filt"], ctx["dist"], ctx["models"]
     n_items = ctx["n_items"]

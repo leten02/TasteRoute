@@ -35,15 +35,18 @@ plt.rcParams.update({
 
 
 def load(name):
+    """Read results/<name>.json."""
     return json.loads((RES / f"{name}.json").read_text())
 
 
 def titled(fig, title, subtitle):
+    """Add the conclusion title and the source subtitle above the plot."""
     fig.text(0.01, 1.035, title, ha="left", va="bottom", fontsize=14, fontweight="bold", color=INK)
     fig.text(0.01, 0.995, subtitle, ha="left", va="bottom", fontsize=10, color=INK2)
 
 
 def save(fig, name):
+    """Write figures/<name>.png and close the figure."""
     FIG.mkdir(exist_ok=True)
     fig.savefig(FIG / f"{name}.png")
     plt.close(fig)
@@ -51,6 +54,7 @@ def save(fig, name):
 
 
 def v1_rmse():
+    """V1: test RMSE per model with 95% bootstrap intervals."""
     d = load("model_compare")["warm"]
     names = list(d)
     rm = np.array([d[n]["rmse"] for n in names])
@@ -69,6 +73,7 @@ def v1_rmse():
 
 
 def v5_cold():
+    """V5: cold-start RMSE at 1, 3 and 5 training ratings (RQ2)."""
     d = load("model_compare")["cold"]
     fig, ax = plt.subplots(figsize=(7, 4))
     ms = [1, 3, 5]
@@ -86,6 +91,7 @@ def v5_cold():
 
 
 def m1_knn():
+    """M1: item-kNN validation RMSE against k per similarity."""
     g = load("item_knn")["grid"]
     fig, ax = plt.subplots(figsize=(7, 4))
     for sim, color in [("cosine", BLUE), ("adjusted", ORANGE), ("pearson", AQUA)]:
@@ -105,6 +111,7 @@ def m1_knn():
 
 
 def m3_mf_curve():
+    """M3: MF train and validation RMSE per epoch."""
     c = load("mf")["curve"]
     ep = [h["epoch"] for h in c]
     fig, ax = plt.subplots(figsize=(7, 4))
@@ -126,6 +133,7 @@ def m3_mf_curve():
 
 
 def m4_mf_grid():
+    """M4: MF validation RMSE over factors f and lambda (heatmap)."""
     g = load("mf")["grid"]
     fs = sorted({x["f"] for x in g})
     lams = sorted({x["lam"] for x in g})
@@ -148,6 +156,7 @@ def m4_mf_grid():
 
 
 def m5_blend():
+    """M5/M6: hybrid validation RMSE against alpha and kappa."""
     d = load("cbf_hybrid")
     fig, (a1, a2) = plt.subplots(1, 2, figsize=(10, 3.8), sharey=True)
     a1.plot([x["alpha"] for x in d["hybrid_alpha"]["curve"]], [x["val_rmse"] for x in d["hybrid_alpha"]["curve"]],
@@ -164,6 +173,7 @@ def m5_blend():
 
 
 def r2_pareto():
+    """R2: NDCG@10 against mean list distance per decay and tau (RQ1)."""
     d = load("ranking")
     fig, ax = plt.subplots(figsize=(8, 4.5))
     for decay, color in [("exp", BLUE), ("gaussian", ORANGE), ("cutoff", AQUA)]:
@@ -188,6 +198,7 @@ def r2_pareto():
 
 
 def t2_timing():
+    """T2: route solver runtime against N (log scale)."""
     t = load("route")["timing"]
     fig, ax = plt.subplots(figsize=(7, 4))
     for key, label, color in [("brute_force", "brute force", ORANGE), ("held_karp", "Held-Karp", BLUE),
@@ -205,6 +216,7 @@ def t2_timing():
 
 
 def t3_gap():
+    """T3: how much longer each ordering is than the optimal route (RQ3)."""
     rows = load("route")["per_user"]
     opt = np.array([r["optimal"] for r in rows])
     gaps = {
@@ -226,6 +238,7 @@ def t3_gap():
 
 
 def d1_popularity():
+    """D1: Precision@10 of popularity vs the popularity-blended hybrid."""
     pop = load("popularity")
     d = pop["test"]
     # gamma chosen on validation by experiments/popularity.py (same rule), never re-picked on test
@@ -248,6 +261,7 @@ def d1_popularity():
 
 
 def main():
+    """Run this step and write its output (see the module docstring)."""
     for f in (v1_rmse, v5_cold, m1_knn, m3_mf_curve, m4_mf_grid, m5_blend, r2_pareto, t2_timing, t3_gap,
               d1_popularity):
         f()

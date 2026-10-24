@@ -44,6 +44,7 @@ class ItemKNN:
         self.similarity, self.k, self.beta, self.bias_lam = similarity, k, beta, bias_lam
 
     def fit(self, train):
+        """Learn the parameters from training ratings (columns u, i, stars); returns self."""
         u, i = train.u.values, train.i.values
         r = train.stars.values.astype(float)
         self.bias = BiasModel(self.n_users, self.n_items, lam=self.bias_lam).fit(train)
@@ -108,6 +109,7 @@ class ItemKNN:
         return base + adj  # no neighbor (den == 0) falls back to b_ui
 
     def predict(self, u, i):
+        """Predicted stars, clipped to 1-5, for each pair (u[k], i[k])."""
         u, i = np.asarray(u), np.asarray(i)
         out = np.empty(len(u))
         if len(u) == 0:
@@ -119,10 +121,12 @@ class ItemKNN:
         return np.clip(out, MIN_STARS, MAX_STARS)
 
     def score_all(self, u):
+        """Predicted stars for user u on every item (array of length n_items)."""
         return np.clip(self._predict_user(u, np.arange(self.n_items)), MIN_STARS, MAX_STARS)
 
 
 def _group_mean(ids, values, n):
+    """Mean of values per integer id; 0 for ids with no values."""
     cnt = np.bincount(ids, minlength=n)
     tot = np.bincount(ids, weights=values, minlength=n)
     return np.divide(tot, cnt, out=np.zeros(n), where=cnt > 0)

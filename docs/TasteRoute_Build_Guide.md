@@ -466,4 +466,4 @@ $$s_{ui} = \frac{\hat r_{ui}-1}{4}\cdot w(d_{ui})$$
 - [x] D2 run_all.py (전체 약 6분)
 - [x] D3 그림 (experiments/figures.py → figures/ 10장)
 - [x] D4 빵집투어 데모 (demo/bakery_tour.py → demo/bakery_tour.html, 1.5초)
-- [ ] D5 주석·출처
+- [x] D5 주석·출처 (모든 함수 docstring, README 참고 문헌)
