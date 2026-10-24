@@ -448,8 +448,8 @@ $$s_{ui} = \frac{\hat r_{ui}-1}{4}\cdot w(d_{ui})$$
 - [x] B2 candidates.py — 인기순 P@10 0.0095 (재현: 0.0094, NDCG@10 0.0323)
 - [x] B3 geo.py
 - [x] B4 rerank.py — 목표: NDCG 약 3.5배, 6.3 → 2.1km (재현: NDCG 0.0009 → 0.0062로 약 6.9배, 6.3 → 2.1km. 재순위화 전 NDCG가 제안서 0.0017보다 낮아 배율이 커짐, 표본 잡음 수준)
-- [ ] C1 route.py
-- [ ] C2 tests
+- [x] C1 route.py (재현: NN+2-opt 최적 81.9%, 평균 차이 0.9%, 추천 순서 +26.3%, Held-Karp N=8 0.9ms)
+- [x] C2 tests (25개 통과)
 - [ ] D1 인기도 반영 후보
 - [ ] D2 run_all.py
 - [ ] D3 노트북 그림
