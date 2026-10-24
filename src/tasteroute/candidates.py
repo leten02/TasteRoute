@@ -61,8 +61,11 @@ def to_unit(scores):
     """Min-max rescale to [0, 1] so a blended score can feed rerank like a rating.
 
     rerank maps ratings with (r - 1) / 4; passing 1 + 4 * to_unit(s) makes the
-    same formula see the blended score on the 1-5 scale.
+    same formula see the blended score on the 1-5 scale. Equal scores map to 1,
+    not 0: a 0 would zero every re-rank score and hide the distance order.
     """
     s = np.asarray(scores, dtype=float)
+    if s.size == 0:
+        return s
     span = s.max() - s.min()
-    return np.zeros_like(s) if span == 0 else (s - s.min()) / span
+    return np.ones_like(s) if span == 0 else (s - s.min()) / span

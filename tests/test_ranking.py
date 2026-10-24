@@ -88,9 +88,19 @@ def test_blend_and_two_stage():
     b = blend_popularity(np.array([4.1, 4.0]), np.array([0.0, 100.0]), 0.1)
     assert b[1] > b[0]  # popular place overtakes a slightly higher rating
     assert list(to_unit([2.0, 4.0, 3.0])) == [0.0, 1.0, 0.5]
+    assert list(to_unit([3.0, 3.0])) == [1.0, 1.0] and to_unit([]).size == 0
 
     items = pd.DataFrame({"i": [0, 1, 2], "is_open": [1, 1, 1]})
     train = pd.DataFrame({"u": [9] * 6, "i": [0, 0, 0, 1, 1, 2]})
     f = CandidateFilter(items, train, seen=train.iloc[:0], min_support=1)
     # pool of 2 most popular = items 0, 1; then ordered by pred
     assert list(two_stage(f, 5, np.array([1.0, 5.0, 9.0]), pool=2)) == [1, 0]
+
+
+def test_rerank_with_equal_scores_orders_by_distance():
+    from tasteroute.candidates import to_unit
+    from tasteroute.rerank import rerank
+
+    cand = np.array([7, 8, 9])
+    top = rerank(cand, 1 + 4 * to_unit(np.full(3, 2.5)), np.array([3.0, 0.5, 1.0]), tau=2, k=3)
+    assert list(top) == [8, 9, 7]
