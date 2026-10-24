@@ -17,6 +17,7 @@ BETAS = [0, 25, 100]
 
 
 def main():
+    """Run this step and write its output (see the module docstring)."""
     r = load_ratings()
     n_users, n_items = n_users_items(r)
     train = get_split(r, "train")

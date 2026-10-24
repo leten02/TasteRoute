@@ -10,6 +10,7 @@ STEPS = ["baseline", "mf", "item_knn", "cbf_hybrid", "compare_models", "ranking"
 
 
 def main():
+    """Run this step and write its output (see the module docstring)."""
     t0 = time.time()
     for name in STEPS:
         t = time.time()
