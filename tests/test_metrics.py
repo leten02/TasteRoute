@@ -1,6 +1,7 @@
 import math
 
 import pandas as pd
+import pytest
 
 from tasteroute.metrics import mae, rmse
 from tasteroute.models.baseline import BiasModel, GlobalMean
@@ -9,6 +10,13 @@ from tasteroute.models.baseline import BiasModel, GlobalMean
 def test_rmse_mae_by_hand():
     assert math.isclose(rmse([1, 2, 3], [1, 2, 5]), math.sqrt(4 / 3))
     assert math.isclose(mae([1, 2, 3], [1, 2, 5]), 2 / 3)
+
+
+def test_rmse_mae_reject_mismatched_or_empty_input():
+    with pytest.raises(ValueError):
+        rmse([1, 2], [[1], [2]])  # would broadcast to 2 x 2
+    with pytest.raises(ValueError):
+        mae([], [])
 
 
 def test_bias_model_learns_harsh_user_and_good_item():
