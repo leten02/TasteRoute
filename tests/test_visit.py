@@ -49,9 +49,10 @@ def test_to_dict_round_trip():
 
 
 def _toy():
-    # 3 places on a north-south line, user 0 rated places 0 and 1
+    # 3 places on a north-south line, 0 km / ~1.1 km / ~11 km from user 0's anchor
+    # (user 0 rated only place 0, so the anchor is place 0)
     items = pd.DataFrame({"i": range(3), "lat": [40.0, 40.01, 40.1], "lon": [-75.0] * 3})
-    train = pd.DataFrame({"u": [0, 0, 1], "i": [0, 1, 2]})
+    train = pd.DataFrame({"u": [0, 1], "i": [0, 2]})
     anchors = user_anchors(train, items, 2)
     return items, train, VisitFeatures(items, train, anchors, np.array([10.0, 1.0, 0.0]))
 
@@ -62,7 +63,7 @@ def test_features_and_radius():
     assert X.shape == (2, 5)
     assert X[0, 0] < X[1, 0]  # place 0 is nearer the anchor than place 2
     assert np.isclose(X[0, 4], np.log1p(10.0)) and X[1, 3] == 3.0
-    assert f.radius[1] == 0.5  # one training place: radius 0, raised to the floor
+    assert f.radius[0] == f.radius[1] == 0.5  # one training place: radius 0, raised to the floor
 
 
 def test_rank_learned_prefers_near_places_when_distance_weight_is_negative():

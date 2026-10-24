@@ -278,7 +278,7 @@ def l1_learned():
     ax.set_ylabel("NDCG@10")
     ax.set_ylim(0, max(vals) * 1.15)
     p = d["paired_vs_fixed"][fixed200]["learned (with personal radius)"]["p"]
-    titled(fig, "A learned distance model ties the tuned rule with more variety",
+    titled(fig, "Learned model: no significant difference from the tuned rule, wider coverage",
            f"Logistic regression on distance, travel radius, rating, popularity · vs tuned rule p = {p:.2f} "
            "· cov = catalog coverage · 3,000 test users")
     save(fig, "L1_learned_vs_fixed")
