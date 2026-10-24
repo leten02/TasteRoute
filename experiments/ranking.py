@@ -44,7 +44,10 @@ def score_lists(lists, relevant, dists):
         out[f"R@{k}"] = float(np.mean([recall_at_k(l, r, k) for l, r in zip(lists, relevant)]))
         out[f"Hit@{k}"] = float(np.mean([hit_rate_at_k(l, r, k) for l, r in zip(lists, relevant)]))
         out[f"NDCG@{k}"] = float(np.mean([ndcg_at_k(l, r, k) for l, r in zip(lists, relevant)]))
-    out["mean_dist_km"] = float(np.mean([d.mean() for d in dists]))
+    # users whose list is empty (every candidate filtered out) have no distance;
+    # skip them, and store null rather than NaN if nobody has one
+    means = [d.mean() for d in dists if len(d)]
+    out["mean_dist_km"] = float(np.mean(means)) if means else None
     return out
 
 
@@ -110,7 +113,7 @@ def main():
                   f"dist {res['mean_dist_km']:.1f} km", flush=True)
 
     (ROOT / "results").mkdir(exist_ok=True)
-    (ROOT / "results" / "ranking.json").write_text(json.dumps(out, indent=1))
+    (ROOT / "results" / "ranking.json").write_text(json.dumps(out, indent=1, allow_nan=False))
 
 
 if __name__ == "__main__":

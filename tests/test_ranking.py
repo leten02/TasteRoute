@@ -59,3 +59,13 @@ def test_candidates_exclude_seen_closed_and_rare():
     assert len(top) == 0  # 0,1 seen, 2 closed, 3 has no support
     top = f.top_m(1, scores=np.array([5.0, 4.0, 3.0, 2.0]), m=3)
     assert list(top) == [0, 1]
+
+
+def test_distance_weight_rejects_non_positive_tau():
+    import pytest
+
+    from tasteroute.rerank import distance_weight
+
+    for tau in (0, -1):
+        with pytest.raises(ValueError):
+            distance_weight([0.0, 1.0], tau)

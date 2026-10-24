@@ -16,7 +16,9 @@ DECAYS = ("exp", "gaussian", "power", "cutoff")
 
 
 def distance_weight(d, tau, decay="exp"):
-    """Weight in [0, 1] for distances d (km)."""
+    """Weight in [0, 1] for distances d (km); tau must be positive."""
+    if tau <= 0:
+        raise ValueError("tau must be positive (tau = 0 divides by zero, tau < 0 rewards distance)")
     d = np.asarray(d, dtype=float)
     if decay == "exp":
         return np.exp(-d / tau)
