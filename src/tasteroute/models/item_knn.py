@@ -76,8 +76,11 @@ class ItemKNN:
         order = np.argsort(u, kind="stable")
         res = r - self.bias.baseline(u, i)
         starts = np.searchsorted(u[order], np.arange(self.n_users + 1))
-        self._items = [i[order][starts[x]:starts[x + 1]] for x in range(self.n_users)]
-        self._res = [res[order][starts[x]:starts[x + 1]] for x in range(self.n_users)]
+        # Sort once: each slice below is a view that keeps its base array alive,
+        # so re-sorting per user would pin one full copy per user in memory.
+        i_sorted, res_sorted = i[order], res[order]
+        self._items = [i_sorted[starts[x]:starts[x + 1]] for x in range(self.n_users)]
+        self._res = [res_sorted[starts[x]:starts[x + 1]] for x in range(self.n_users)]
         return self
 
     def _predict_user(self, u, items):
