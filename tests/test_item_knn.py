@@ -39,3 +39,8 @@ def test_score_all_shape_and_range():
     m = ItemKNN(6, 3, "adjusted", k=2).fit(_toy())
     s = m.score_all(0)
     assert s.shape == (3,) and s.min() >= 1 and s.max() <= 5
+
+
+def test_empty_batch_predicts_nothing():
+    m = ItemKNN(3, 3, "cosine", k=2, beta=0).fit(pd.DataFrame({"u": [0, 1, 2], "i": [0, 1, 2], "stars": [5.0, 3.0, 1.0]}))
+    assert m.predict(np.array([], dtype=int), np.array([], dtype=int)).shape == (0,)
