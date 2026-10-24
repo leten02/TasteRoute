@@ -1,0 +1,18 @@
+[theme]
+base = "light"
+primaryColor = "#eb6834"
+backgroundColor = "#f6f7f9"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#1f2430"
+font = "sans serif"
+
+[server]
+headless = true
+# local only: the app reads Yelp data, which must not be served to the network
+address = "localhost"
+
+[client]
+toolbarMode = "viewer"
+
+[browser]
+gatherUsageStats = false
