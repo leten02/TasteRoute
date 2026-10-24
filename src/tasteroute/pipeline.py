@@ -40,6 +40,8 @@ def plan_day(pred, filt, items, start, user=None, n=6, mask=None, gamma=GAMMA, t
     dist = haversine(start[0], start[1], lat[cand], lon[cand])
     chosen = rerank(cand, 1 + 4 * to_unit(score[cand]), dist, tau, decay, k=n)
 
+    # np.r_[a, b] concatenates a scalar and an array into one 1-D array: the start
+    # point becomes node 0, followed by the n chosen places
     D = distance_matrix(np.r_[start[0], lat[chosen]], np.r_[start[1], lon[chosen]])
     order, length = held_karp(D)
     return {
