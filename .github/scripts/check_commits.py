@@ -2,8 +2,10 @@
 
 Header format: <type>(<scope>): <subject>, scope optional, subject at most 50
 characters and not ending with a period. Merge and revert commits are skipped.
+For PRs into main (release, hotfix) only the title is checked: their commits
+were already checked when they entered develop.
 
-Usage (CI): PR_TITLE=... BASE=<sha> HEAD=<sha> python3 .github/scripts/check_commits.py
+Usage (CI): PR_TITLE=... BASE_REF=<base branch> BASE=<sha> HEAD=<sha> python3 .github/scripts/check_commits.py
 """
 import os
 import re
@@ -11,7 +13,7 @@ import subprocess
 import sys
 
 TYPES = ("feat", "fix", "hotfix", "docs", "style", "refactor", "test", "chore")
-HEADER = re.compile(rf"^(?:{'|'.join(TYPES)})(?:\([a-z0-9._/-]+\))?!?: (?P<subject>.+)$")
+HEADER = re.compile(rf"^(?:{'|'.join(TYPES)})(?:\([a-z0-9._/-]+\))?: (?P<subject>.+)$")
 MAX_SUBJECT = 50
 
 
@@ -32,10 +34,13 @@ def problems(header):
 def main():
     """Print a GitHub annotation per violation and exit 1 if there is any."""
     checks = [("PR 제목", os.environ["PR_TITLE"])]
-    log = subprocess.run(
-        ["git", "log", "--no-merges", "--format=%h %s", f"{os.environ['BASE']}..{os.environ['HEAD']}"],
-        capture_output=True, text=True, check=True,
-    ).stdout
+    if os.environ.get("BASE_REF") == "main":
+        log = ""
+    else:
+        log = subprocess.run(
+            ["git", "log", "--no-merges", "--format=%h %s", f"{os.environ['BASE']}..{os.environ['HEAD']}"],
+            capture_output=True, text=True, check=True,
+        ).stdout
     for line in log.splitlines():
         sha, header = line.split(" ", 1)
         if not header.startswith("Revert "):

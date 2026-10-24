@@ -14,7 +14,7 @@
 
 예: `feature/31-temporal-split`, `release/1.0`
 
-기본 브랜치는 `main`이라서 PR을 만들 때 **base를 `develop`으로 직접 골라야 한다**. `develop`에 머지된 PR의 `Closes #n` 이슈는 워크플로(`close-issues.yml`)가 대신 닫는다.
+기본 브랜치는 `main`이라서 **feature PR은 base를 `develop`으로 직접 골라야 한다** (release, hotfix PR은 `main`). `develop`에 머지된 PR의 `Closes #n` 이슈는 워크플로(`close-issues.yml`)가 대신 닫는다.
 
 ## 작업 순서
 
@@ -101,7 +101,7 @@ Related to #6
 
 커밋은 파일 단위가 아니라 **작업 단위**로 나눈다. 의미 있는 변경 하나를 커밋 하나로 묶는다.
 
-`commit-convention` CI가 PR 제목과 PR 안의 커밋 제목을 검사한다 (merge, revert 커밋은 제외). 로컬에서 미리 확인하려면
+`commit-convention` CI가 PR 제목과 PR 안의 커밋 제목을 검사한다 (merge, revert 커밋은 제외). `main`으로 가는 release, hotfix PR은 커밋이 이미 develop에서 검사됐으므로 PR 제목만 본다. 로컬에서 미리 확인하려면
 
 ```bash
 PR_TITLE="feat(mf): ..." BASE=origin/develop HEAD=HEAD python3 .github/scripts/check_commits.py
