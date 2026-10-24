@@ -465,5 +465,5 @@ $$s_{ui} = \frac{\hat r_{ui}-1}{4}\cdot w(d_{ui})$$
 - [x] D1 인기도 반영 후보 (blend γ=5 + 거리: P@10 0.0102, NDCG@10 0.0340. 인기순+거리 0.0100 / 0.0337과 사실상 동률 → 모델 기여는 잡음 수준)
 - [x] D2 run_all.py (전체 약 6분)
 - [x] D3 그림 (experiments/figures.py → figures/ 10장)
-- [ ] D4 빵집투어 데모
+- [x] D4 빵집투어 데모 (demo/bakery_tour.py → demo/bakery_tour.html, 1.5초)
 - [ ] D5 주석·출처
