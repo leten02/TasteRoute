@@ -47,10 +47,13 @@
 
 ```
 data/                         데이터 (커밋 안 함, data/README.md 참고)
-data_analysis_preprocessing/  전체 데이터 탐색, 전처리, 그림 (완료)
-src/                          모델, 재순위화, 동선 모듈
-experiments/                  실험 스크립트 (결과는 results/)
+data_analysis_preprocessing/  전체 데이터 탐색, 전처리, EDA·전처리 그림과 결과 (완료)
+src/tasteroute/               모델, 재순위화, 동선, 평가 모듈 (패키지)
+experiments/                  실험 스크립트
+results/                      실험 결과 JSON/CSV
+figures/                      발표용 그림
 notebooks/                    결과 시각화
+tests/                        단위 테스트
 docs/                         제안서, 코드 구현 계획, 발표 개요
 ```
 
@@ -58,7 +61,7 @@ docs/                         제안서, 코드 구현 계획, 발표 개요
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -e ".[dev]"   # tasteroute 패키지 설치 (src layout)
 # data/raw/에 Yelp JSON을 넣은 뒤
 python data_analysis_preprocessing/preprocess.py   # 약 90초, data/processed/ 생성
 ```
