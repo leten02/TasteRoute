@@ -106,6 +106,8 @@ class ItemKNN:
     def predict(self, u, i):
         u, i = np.asarray(u), np.asarray(i)
         out = np.empty(len(u))
+        if len(u) == 0:
+            return out
         order = np.argsort(u, kind="stable")
         bounds = np.flatnonzero(np.diff(u[order])) + 1
         for idx in np.split(order, bounds):

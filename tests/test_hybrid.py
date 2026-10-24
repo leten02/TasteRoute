@@ -25,3 +25,10 @@ def test_adaptive_alpha_matches_worked_example():
     h = Hybrid(_Const(4.0), _Const(2.0), kappa=100).fit(train)
     assert np.isclose(h.weight(np.array([0]))[0], 45 / 145)  # proposal 9.4: 0.31
     assert h.weight(np.array([2]))[0] == 0  # no ratings -> CBF only
+
+
+def test_kappa_must_be_positive():
+    import pytest
+
+    with pytest.raises(ValueError):
+        Hybrid(None, None, kappa=0)
