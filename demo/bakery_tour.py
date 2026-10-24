@@ -7,7 +7,12 @@ Usage:
     python demo/bakery_tour.py                       # new visitor, starting at City Hall
     python demo/bakery_tour.py --user 1458           # personalized for a dataset user
     python demo/bakery_tour.py --lat 39.9496 --lon -75.1503 --n 5
+    python demo/bakery_tour.py --straight            # straight lines, no street download
 Output: demo/bakery_tour.html (open in a browser)
+
+The route follows real streets: the walking network around the chosen places
+is downloaded from OpenStreetMap on the first run (about a minute, cached in
+data/osm/) and the visiting order is optimized on walking distance.
 
 The demo scores places with the CBF model (bias + category taste). It ties
 the hybrid on RMSE (experiments/compare_models.py) and fits in seconds.
@@ -24,6 +29,7 @@ from tasteroute.data import get_split, load_item_features, load_items, load_rati
 from tasteroute.geo import user_anchors
 from tasteroute.models.cbf import CBF
 from tasteroute.pipeline import plan_day
+from tasteroute.roads import WALK_KMH
 
 HERE = Path(__file__).resolve().parent
 CITY_HALL = (39.9526, -75.1636)
@@ -37,6 +43,7 @@ def main():
     ap.add_argument("--lon", type=float, help="start longitude")
     ap.add_argument("--n", type=int, default=6, help="number of bakeries (Held-Karp handles up to ~12)")
     ap.add_argument("--category", default="Bakeries", help="Yelp category to tour")
+    ap.add_argument("--straight", action="store_true", help="straight-line routing (no OpenStreetMap download)")
     args = ap.parse_args()
 
     r = load_ratings()
@@ -65,7 +72,8 @@ def main():
     # Series.str.contains(text, regex=False, na=False): True where the category
     # string contains `text` literally; places without categories count as False
     mask = items.categories.str.contains(args.category, regex=False, na=False).values
-    plan = plan_day(pred, filt, items, start, user=args.user, n=args.n, mask=mask)
+    plan = plan_day(pred, filt, items, start, user=args.user, n=args.n, mask=mask,
+                    roads=None if args.straight else "osm")
     if not plan["places"]:
         print(f"no open {args.category!r} place with enough ratings; check the --category spelling")
         return
@@ -74,17 +82,18 @@ def main():
     for step, i in enumerate(plan["places"], start=1):
         row = items.iloc[i]
         print(f"{step}. {row['name']}  ({row['stars']} stars, {row['review_count']} reviews)")
-    print(f"route {plan['route_km']:.1f} km  (recommendation order would be {plan['rec_order_km']:.1f} km)")
+    kind = "straight-line" if args.straight else "walking"
+    minutes = plan["route_km"] / WALK_KMH * 60
+    print(f"{kind} route {plan['route_km']:.1f} km, about {minutes:.0f} min on foot "
+          f"(recommendation order would be {plan['rec_order_km']:.1f} km; straight line {plan['straight_km']:.1f} km)")
 
     # folium.Map(location, zoom_start) creates a Leaflet web map; Marker and
     # PolyLine add pins and the route line; m.save(path) writes a single HTML file.
     m = folium.Map(location=start, zoom_start=14, tiles="OpenStreetMap")
     folium.Marker(start, tooltip="Start", icon=folium.Icon(color="black", icon="home")).add_to(m)
-    path = [start]
     for step, i in enumerate(plan["places"], start=1):
         row = items.iloc[i]
         loc = (row.lat, row.lon)
-        path.append(loc)
         folium.Marker(
             loc,
             tooltip=f"{step}. {row['name']}",
@@ -93,7 +102,11 @@ def main():
                                      f'width:24px;height:24px;line-height:24px;text-align:center;'
                                      f'font:bold 13px sans-serif">{step}</div>'),
         ).add_to(m)
-    folium.PolyLine(path, color="#2a78d6", weight=3).add_to(m)
+    folium.PolyLine(plan["path"], color="#2a78d6", weight=4, opacity=0.85,
+                    tooltip=f"{kind} {plan['route_km']:.1f} km, about {minutes:.0f} min").add_to(m)
+    lats, lons = zip(*plan["path"])
+    # fit_bounds([[south, west], [north, east]]) zooms the map to show the whole route
+    m.fit_bounds([[min(lats), min(lons)], [max(lats), max(lons)]], padding=(30, 30))
     out = HERE / "bakery_tour.html"
     m.save(out)
     print(f"map: {out}")
