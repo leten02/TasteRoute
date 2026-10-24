@@ -1,140 +1,10 @@
 # TasteRoute
 
-취향 기반 장소 추천과 동선 생성 · 가천대학교 머신러닝 Term Project (2026)
+취향 기반 장소 추천과 동선 생성 — 머신러닝 Term Project
 
-사용자가 좋아할 만한 장소 Top-N을 추천하고, 거리를 반영해 실제로 갈 수 있는 곳으로 다시 순위를 매긴 뒤, 그곳들을 도는 하루 동선까지 만든다.
+Yelp 리뷰 데이터로 사용자 취향에 맞는 장소 Top-N을 추천하고, 거리를 반영해 실제로 갈 수 있는 추천으로 다듬은 뒤, 추천된 장소들을 도는 하루 동선을 만든다.
 
-## 시스템 구조
-
-| 단계 | 방식 | 내용 |
-| --- | --- | --- |
-| 1. 별점 예측 | 머신러닝 | Bias, Item-kNN, MF(SGD + L2), CBF(TF-IDF 카테고리 + ridge), Hybrid(적응형 alpha) |
-| 2. 거리 재순위화 | 알고리즘 | 예상 별점 × 거리 감쇠 가중치 (haversine, 기본: 지수 감쇠 tau = 2km) |
-| 3. 동선 최적화 | 알고리즘 | 최종 5~8곳의 최단 방문 순서 (Held-Karp DP, 비교: 완전탐색, NN + 2-opt) |
-
-## 연구 질문
-
-- **RQ1** 거리를 순위에 넣으면 정확도는 얼마나 잃고 이동거리는 얼마나 줄어드나?
-- **RQ2** 평가 수가 적은 사용자(cold start)에게 CBF가 오차를 줄여 주나?
-- **RQ3** 빠른 근사 경로(NN + 2-opt)는 정확한 최적해에 얼마나 가깝고, 얼마나 빠른가?
-
-## 데이터
-
-[Yelp Open Dataset](https://www.yelp.com/dataset) (리뷰 6,990,280개, 업체 150,346개). 받는 방법은 [`data/README.md`](data/README.md) 참고.
-
-| 단계 | 평점 | 사용자 | 업체 |
-| --- | --- | --- | --- |
-| 원본 | 6,990,280 | 1,987,929 | 150,346 |
-| Philadelphia 시청 반경 15km 음식점, 중복 제거 | 809,070 | 242,139 | 8,956 |
-| 5-core (작업 데이터, 밀도 0.20%) | 490,539 | 31,743 | 7,693 |
-
-사용자별 70 / 15 / 15로 train, validation, test를 나누고, cold-start 실험용 사용자 1,306명(학습 평점 1/3/5개만 남김)을 따로 둔다.
-
-## 평가
-
-| 단계 | 지표 |
-| --- | --- |
-| 별점 예측 | RMSE, MAE |
-| Top-N 랭킹 | Precision@K, Recall@K, NDCG@K, HitRate@K (K = 5, 10) |
-| 추천 품질 | Catalog coverage, intra-list diversity, novelty |
-| 거리 재순위화 (RQ1) | Top-K 평균 거리, 줄인 거리(km)당 NDCG 손실 |
-| Cold start (RQ2) | 학습 평점 1/3/5개일 때 RMSE |
-| 동선 (RQ3) | 경로 길이, 최적해 대비 차이, 실행 시간 |
-
-모델 간 차이는 사용자별 paired t-test와 bootstrap 95% 신뢰구간으로 검정한다.
-
-## 폴더 구조
-
-```
-data/                         데이터 (커밋 안 함, data/README.md 참고)
-data_analysis_preprocessing/  전체 데이터 탐색, 전처리, EDA·전처리 그림과 결과
-src/tasteroute/               패키지
-  data.py                       전처리 결과 로드, split 조회
-  metrics.py                    RMSE, MAE, Precision/Recall/HitRate/NDCG@K
-  models/                       baseline(전체 평균, bias), mf, item_knn, cbf, hybrid
-  candidates.py                 후보 생성, 인기도 blend
-  geo.py                        haversine, 사용자 기준점
-  rerank.py                     거리 감쇠 재순위화
-  route.py                      완전탐색, Held-Karp, NN, 2-opt
-  pipeline.py                   한 사람의 하루 일정 (추천 → 재순위화 → 경로)
-experiments/                  실험 스크립트 (결과는 results/, 그림은 figures/)
-results/                      실험 결과 JSON
-figures/                      모델·랭킹·동선 그림
-demo/                         필라델피아 빵집투어 지도 데모
-tests/                        단위 테스트 (pytest)
-notebooks/                    탐색용 노트북 (선택)
-docs/                         제안서, 코드 구현 계획, 구현 가이드, 발표 개요
-```
-
-모든 모델은 같은 인터페이스를 가진다: `fit(train)`, `predict(u, i)`, `score_all(u)`.
-
-## 실행
-
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev,demo]"          # tasteroute 패키지 설치 (src layout)
-
-# 1. data/raw/에 Yelp JSON을 넣고 전처리 (약 90초, data/processed/ 생성)
-python data_analysis_preprocessing/preprocess.py
-
-# 2. 모든 실험 + 그림 재생성 (약 6분, 대부분 MF 그리드)
-python experiments/run_all.py
-
-# 3. 테스트
-pytest
-
-# 4. 데모: 시청에서 출발하는 빵집 6곳 경로 → demo/bakery_tour.html
-python demo/bakery_tour.py            # 새 방문자
-python demo/bakery_tour.py --user 1458  # 데이터셋 사용자 맞춤
-```
-
-실험을 하나씩 돌리려면 `python experiments/<이름>.py` (baseline, mf, item_knn, cbf_hybrid, compare_models, ranking, route, popularity, figures).
-
-## 결과 요약
-
-모두 test set 기준, 튜닝은 validation에서만 했다.
-
-**별점 예측** (warm 사용자 평점 69,847개, `results/model_compare.json`)
-
-| 모델 | 설정 | RMSE [95% CI] | MAE |
-| --- | --- | --- | --- |
-| 전체 평균 | - | 1.190 [1.182, 1.198] | 0.943 |
-| Bias | λ = 5 | **1.051** [1.044, 1.059] | 0.818 |
-| Item-kNN | cosine, k = 80, β = 0 | 1.121 [1.113, 1.130] | 0.839 |
-| MF (SGD) | f = 10, λ = 0.1, 15 epoch | 1.052 [1.044, 1.059] | 0.819 |
-| CBF (ridge) | λc = 30 | **1.051** [1.043, 1.059] | 0.818 |
-| Hybrid | κ = 100 | **1.051** [1.044, 1.059] | 0.818 |
-
-사용자당 학습 평점 중앙값이 6개라 bias 외의 구조를 배우기 어렵다. MF는 bias보다 근소하게 나쁘고(p = 0.0015), CBF와 Hybrid는 bias와 구분되지 않는다(p = 0.81, 0.93).
-
-**RQ1 거리 재순위화** (test 사용자 3,000명, `results/ranking.json`): 지수 감쇠 τ = 2km에서 Hybrid 목록의 평균 거리 6.3km → 2.1km, NDCG@10 0.0009 → 0.0062. 거리를 넣으면 정확도가 떨어지는 대신 오히려 오른다. 사용자가 실제로 가까운 곳을 다니기 때문이다.
-
-**RQ2 cold start** (`results/model_compare.json`): 학습 평점 1/3/5개 사용자에서 CBF·Hybrid는 bias와 0.002 이내. 카테고리만으로는 신규 사용자를 돕지 못한다.
-
-**RQ3 동선** (N = 6, `results/route.json`): 추천 순서대로 돌면 최적 경로보다 중앙값 26% 길다. NN + 2-opt는 82%의 사용자에서 정확한 최적해(평균 차이 0.9%). Held-Karp는 N = 8에서 약 1ms.
-
-**랭킹 개선** (`results/popularity.json`): 예측 별점만으로는 인기순(P@10 0.0094)을 이기지 못한다. 별점에 log 인기도를 섞고(γ = 5) 거리 재순위화를 하면 P@10 0.0102지만, 인기순 + 거리(0.0100)와 사실상 같다. 이 데이터에서 랭킹 신호는 대부분 인기도와 거리에서 나온다.
-
-## 참고 문헌과 코드 출처
-
-- Y. Koren, R. Bell, C. Volinsky, "Matrix Factorization Techniques for Recommender Systems", *IEEE Computer*, 2009 — bias 모델, MF와 SGD 갱신식 (`models/baseline.py`, `models/mf.py`)
-- A. Yeung, "Matrix Factorization: A Simple Tutorial and Implementation in Python", https://albertauyeung.github.io/2017/04/23/python-matrix-factorization.html/ — MF SGD 구현 참고 (과제 안내 자료)
-- B. Sarwar et al., "Item-based Collaborative Filtering Recommendation Algorithms", *WWW*, 2001 — Item-kNN 유사도 (`models/item_knn.py`)
-- Y. Koren, "Factor in the Neighbors: Scalable and Accurate Collaborative Filtering", *ACM TKDD*, 2010 — 유사도 shrinkage, bias 위의 이웃 예측
-- K. Järvelin, J. Kekäläinen, "Cumulated Gain-based Evaluation of IR Techniques", *ACM TOIS*, 2002 — NDCG (`metrics.py`)
-- M. Held, R. Karp, "A Dynamic Programming Approach to Sequencing Problems", *J. SIAM*, 1962 — Held-Karp (`route.py`)
-- G. A. Croes, "A Method for Solving Traveling-Salesman Problems", *Operations Research*, 1958 — 2-opt (`route.py`)
-- Yelp Open Dataset, https://www.yelp.com/dataset — 데이터 (재배포 금지, 커밋 안 함)
-
-수업에서 다루지 않은 라이브러리 함수(`np.bincount`, `scipy.sparse.csr_matrix`, `np.argpartition`, `np.linalg.solve`, `scipy.stats.ttest_rel`, `folium` 등)는 사용한 위치의 주석에 무엇을 하는지와 파라미터를 적었다.
-
-## 문서
-
-- [제안서](docs/Term_Project_Proposal.docx)
-- [코드 구현 계획](docs/TasteRoute_Code_Plan.md)
-- [구현 가이드](docs/TasteRoute_Build_Guide.md)
-- [발표 개요](docs/TasteRoute_Slides_Outline.md)
-- [데이터 분석과 전처리](data_analysis_preprocessing/README.md)
+> 가천대학교 머신러닝 수업 Term Project (2026)
 
 ## 과제 요구사항
 
@@ -156,3 +26,37 @@ python demo/bakery_tour.py --user 1458  # 데이터셋 사용자 맞춤
    - 인터넷(블로그, Kaggle, GitHub 등)의 코드를 쓰면 **반드시 출처를 밝힌다** (안 밝히면 표절).
    - 수업에서 다루지 않은 모듈·클래스·라이브러리·함수는 파라미터까지 설명을 단다.
 3. 결과물: 플롯, 코드 실행 결과
+
+## 구성
+
+1. **후보 추천** — Item-based kNN (memory-based CF), Matrix Factorization (model-based CF), Content-based Filtering (카테고리), Hybrid
+2. **거리 재순위화** — 위경도 haversine 거리로 먼 장소 감점
+3. **동선 최적화** (여유 시) — 최종 5~8곳 방문 순서를 완전탐색/DP로 계산
+
+## 평가
+
+| 대상 | 지표 |
+|------|------|
+| 후보 추천 | RMSE, Precision@K, Recall@K |
+| 거리 재순위화 | 추천 목록 평균 이동거리, 카테고리 다양성 |
+| 동선 최적화 | 총 이동거리, 계산 시간 |
+| Cold start | 평가 수 적은 사용자의 RMSE |
+
+## 폴더 구조
+
+```
+src/        모듈 코드
+notebooks/  탐색·실험·결과 노트북
+data/       데이터 (커밋 안 함, data/README.md 참고)
+```
+
+## 데이터
+
+[Yelp Open Dataset](https://www.yelp.com/dataset) — 받는 방법은 [`data/README.md`](data/README.md) 참고.
+
+## 실행
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+```

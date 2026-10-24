@@ -13,8 +13,3 @@ venv/
 .DS_Store
 .idea/
 .vscode/
-*.egg-info/
-build/
-
-# demo output (regenerate with python demo/bakery_tour.py)
-demo/*.html
