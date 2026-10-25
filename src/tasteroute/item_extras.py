@@ -92,12 +92,16 @@ def parse_hours(hours):
 def is_open_at(hours, day, minute):
     """True if a place with parsed hours is open on `day` at `minute` after midnight.
 
-    Also counts the previous day's opening that runs past midnight. Places with
-    no hours listed are treated as open (unknown, not closed).
+    `minute` may run past midnight (e.g. 1500 = 01:00 the next day): whole days
+    roll over to the following weekday first. Also counts the previous day's
+    opening that runs past midnight. Places with no hours listed are treated as
+    open (unknown, not closed).
     """
     if not hours:
         return True
-    k = DAYS.index(day)
+    roll, minute = divmod(int(minute), 24 * 60)
+    k = (DAYS.index(day) + roll) % 7
+    day = DAYS[k]
     start, end = hours.get(day, (None, None))
     if start is not None and start <= minute < end:
         return True

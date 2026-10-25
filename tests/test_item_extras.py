@@ -56,3 +56,13 @@ def test_open_mask_and_hours_text():
     assert hours_today({"Monday": (600, 1200)}, "Monday") == "10:00-20:00"
     assert hours_today({"Monday": (0, 1440)}, "Monday") == "24시간"
     assert hours_today({}, "Monday") is None
+
+
+def test_stay_past_midnight_rolls_over_to_next_day():
+    from tasteroute.item_extras import is_open_at
+
+    both = {"Monday": (0, 1440), "Tuesday": (0, 1440)}
+    monday_only = {"Monday": (0, 1440)}
+    assert is_open_at(both, "Monday", 23 * 60 + 120)  # Monday 23:00 + 2 h = Tuesday 01:00
+    assert not is_open_at(monday_only, "Monday", 23 * 60 + 120)
+    assert is_open_at({"Sunday": (600, 1200)}, "Saturday", 24 * 60 + 700)  # rolls Saturday -> Sunday

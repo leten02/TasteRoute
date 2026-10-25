@@ -24,15 +24,18 @@ from .roads import KM_PER_DEG_LAT
 def to_km(lat, lon):
     """Equirectangular projection to km, good enough within a city."""
     lat, lon = np.asarray(lat, dtype=float), np.asarray(lon, dtype=float)
+    # np.column_stack([a, b]) puts the two 1-D arrays side by side: an n x 2 matrix of (north km, east km)
     return np.column_stack([lat * KM_PER_DEG_LAT, lon * KM_PER_DEG_LAT * np.cos(np.radians(lat.mean()))])
 
 
 def _plus_plus(X, k, rng):
     """k-means++ starting centers."""
+    # rng.integers(n): one random index in [0, n), the first center
     centers = [X[rng.integers(len(X))]]
     for _ in range(1, k):
         d2 = np.min(((X[:, None, :] - np.array(centers)[None]) ** 2).sum(axis=2), axis=1)
         p = d2 / d2.sum() if d2.sum() > 0 else np.full(len(X), 1 / len(X))
+        # rng.choice(n, p=p): one index in [0, n) drawn with probabilities p
         centers.append(X[rng.choice(len(X), p=p)])
     return np.array(centers)
 
@@ -85,6 +88,8 @@ def balanced_kmeans(X, k, size, max_iter=50, seed=42):
     for _ in range(max_iter):
         d2 = ((X[:, None, :] - centers[None]) ** 2).sum(axis=2)
         new, room = np.full(len(X), -1), np.full(k, size)
+        # np.argsort(d2, axis=None) sorts the whole n x k matrix as one flat list and
+        # returns flat positions; divmod(position, k) turns each back into (point, center)
         for flat in np.argsort(d2, axis=None, kind="stable"):
             p, c = divmod(int(flat), k)
             if new[p] < 0 and room[c] > 0:

@@ -68,6 +68,8 @@ def mmr(candidates, relevance, features, lam, k=10):
         return cand[:0]
     F = features[cand]
     F = F.toarray() if hasattr(F, "toarray") else np.asarray(F, dtype=float)
+    # np.linalg.norm(F, axis=1): the length of each row (one per candidate), used
+    # to scale rows to unit length so F @ F.T is the cosine similarity
     norms = np.linalg.norm(F, axis=1)
     norms[norms == 0] = 1.0
     F = F / norms[:, None]

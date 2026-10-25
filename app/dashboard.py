@@ -280,7 +280,8 @@ with tab_plan:
             hours = extras.hours.get(i) if extras is not None else None
             status = "unknown"
             if isinstance(hours, dict) and hours:
-                ok = is_open_at(hours, wd, arrive % 1440) and is_open_at(hours, wd, (arrive + stay) % 1440)
+                # minutes past midnight roll over to the next weekday inside is_open_at
+                ok = is_open_at(hours, wd, arrive) and is_open_at(hours, wd, arrive + stay)
                 status = "open" if ok else "closed"
                 closed += status == "closed"
             d0 = float(haversine(start[0], start[1], row.lat, row.lon))
