@@ -44,3 +44,15 @@ def test_score_all_shape_and_range():
 def test_empty_batch_predicts_nothing():
     m = ItemKNN(3, 3, "cosine", k=2, beta=0).fit(pd.DataFrame({"u": [0, 1, 2], "i": [0, 1, 2], "stars": [5.0, 3.0, 1.0]}))
     assert m.predict(np.array([], dtype=int), np.array([], dtype=int)).shape == (0,)
+
+
+def test_rated_item_is_not_its_own_neighbor():
+    # users who like item 0 dislike item 1: adjusted cosine s_01 = -1. Scoring the
+    # rated item 0 with k = 1 must use item 1, not item 0 itself (similarity 0),
+    # which would silently fall back to the bias baseline.
+    df = pd.DataFrame({"u": [0, 0, 1, 1, 2, 2, 3, 3], "i": [0, 1, 0, 1, 0, 1, 2, 0],
+                       "stars": [5.0, 1.0, 5.0, 1.0, 4.0, 2.0, 3.0, 3.0]})
+    m = ItemKNN(4, 3, "adjusted", k=1, beta=0).fit(df)
+    assert m.S[0, 1] < 0
+    base = np.clip(m.bias.baseline(np.array([0]), np.array([0]))[0], 1, 5)
+    assert not np.isclose(m.score_all(0)[0], base)

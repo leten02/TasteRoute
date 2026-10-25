@@ -32,3 +32,11 @@ def test_kappa_must_be_positive():
 
     with pytest.raises(ValueError):
         Hybrid(None, None, kappa=0)
+
+
+def test_alpha_must_be_a_weight():
+    import pytest
+
+    with pytest.raises(ValueError):
+        Hybrid(None, None, alpha=2)
+    Hybrid(None, None, alpha=2, kappa=10)  # alpha is ignored when kappa is set

@@ -90,10 +90,14 @@ class ItemKNN:
         if len(J) == 0:
             return base
         sims = self.S[np.ix_(items, J)]  # np.ix_ selects the rows x cols sub-block
+        # an item never counts as its own neighbor (matters when scoring rated items)
+        own = np.asarray(items)[:, None] == J[None, :]
+        sims = np.where(own, 0.0, sims)
         if len(J) > self.k:
             # np.argpartition(a, kth) puts the kth smallest in place without a full
-            # sort; on -sims it picks the k largest similarities per row.
-            top = np.argpartition(-sims, self.k - 1, axis=1)[:, : self.k]
+            # sort; on -sims it picks the k largest similarities per row (own item
+            # pushed to the end with +inf).
+            top = np.argpartition(np.where(own, np.inf, -sims), self.k - 1, axis=1)[:, : self.k]
             sims = np.take_along_axis(sims, top, axis=1)
             res = res[top]
         else:

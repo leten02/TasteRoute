@@ -27,6 +27,8 @@ class Hybrid:
     def __init__(self, cf, cbf, alpha=0.5, kappa=None):
         if kappa is not None and kappa <= 0:
             raise ValueError("kappa must be positive (kappa = 0 gives 0/0 for users without ratings)")
+        if kappa is None and not 0 <= alpha <= 1:
+            raise ValueError("alpha is a blend weight and must be in [0, 1]")
         self.cf, self.cbf = cf, cbf
         self.alpha, self.kappa = alpha, kappa
 
