@@ -37,6 +37,12 @@
   .card.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-tint); }
   .card.start-card { cursor: default; background: var(--bg); }
   .name { font-size: 14px; font-weight: 600; line-height: 1.3; }
+  /* card: name and arrival time on one line (what and when), then status, then facts */
+  .card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .card-top .time { flex: none; font-size: 13px; font-weight: 600; }
+  .facts { gap: 4px; }
+  .facts b { color: var(--ink); font-weight: 600; }
+  .facts .dot { color: #c4c9d2; }
   .meta { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
   .star { color: #f5a524; }
   .chip { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; padding: 2px 7px;
@@ -70,6 +76,14 @@
   .st-open { background: #e3f6ee; color: #12795a; }
   .st-closed { background: #fde8e8; color: #b42318; }
   .st-unknown { background: var(--bg); color: var(--muted); }
+  /* narrow screens: map on top, itinerary below (the 380 px list would push the map off screen) */
+  @media (max-width: 760px) {
+    .wrap { grid-template-columns: 1fr; grid-template-rows: 280px minmax(0, 1fr); gap: 12px; }
+    .mapbox { order: -1; min-height: 280px; }
+    .panel-head { padding: 12px 14px 10px; }
+    .list { padding: 10px 10px 14px; }
+    .stop { grid-template-columns: 26px 1fr; column-gap: 10px; }
+  }
 </style>
 </head>
 <body>
@@ -121,11 +135,11 @@ DATA.days.forEach((day, d) => {
     html += `<div class="stop"><div class="rail"></div><div class="leg">🚶 <b>${fmtKm(s.leg_km)}</b> · ${s.leg_min}분 ${DATA.walking ? "도보" : "(직선)"}</div></div>
     <div class="stop"><div class="rail"><div class="badge" style="background:${day.color}">${k + 1}</div>${last ? "" : '<div class="line"></div>'}</div>
     <div><div class="card" data-k="${g}">
-      <div class="name">${esc(s.name)}</div>
-      <div class="meta"><span class="time">도착 ${s.arrive}</span>
-        <span class="chip st-${s.status}">${statusText[s.status]}</span>${s.hours ? `<span>영업 ${esc(s.hours)}</span>` : ""}</div>
-      <div class="meta"><span><span class="star">★</span> ${s.stars.toFixed(1)}</span><span>리뷰 ${s.reviews.toLocaleString()}</span>
-        <span class="chip">예상 ★${s.pred.toFixed(2)}</span><span class="chip">추천 ${s.rank}위</span></div>
+      <div class="card-top"><div class="name">${esc(s.name)}</div><span class="time" title="도착 예정 시각">${s.arrive}</span></div>
+      <div class="meta"><span class="chip st-${s.status}">${statusText[s.status]}</span>${s.hours ? `<span>영업 ${esc(s.hours)}</span>` : ""}</div>
+      <div class="meta facts"><span><span class="star" aria-hidden="true">★</span> ${s.stars.toFixed(1)}</span><span class="dot">·</span>
+        <span>리뷰 ${s.reviews.toLocaleString()}</span><span class="dot">·</span><span>예상 <b>★${s.pred.toFixed(2)}</b></span>
+        <span class="dot">·</span><span>추천 ${s.rank}위</span></div>
       <div class="meta">${s.tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>
       <div class="why">${esc(s.why)}</div>
     </div></div></div>`;
@@ -140,8 +154,16 @@ L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19,
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 }).addTo(map);
-map.fitBounds([[DATA.bounds[0][1], DATA.bounds[0][0]], [DATA.bounds[1][1], DATA.bounds[1][0]]],
+const fitRoute = () => map.fitBounds([[DATA.bounds[0][1], DATA.bounds[0][0]], [DATA.bounds[1][1], DATA.bounds[1][0]]],
   { paddingTopLeft: [50, 90], paddingBottomRight: [50, 50] });
+fitRoute();
+// the frame changes width when the sidebar opens or closes, or on phone rotation:
+// tell Leaflet its new size and fit the whole route again
+let resizeTimer;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { map.invalidateSize(); fitRoute(); }, 150);
+});
 
 const recLines = DATA.days.map(day => L.polyline(day.rec_path, { color: "#9aa4b2", weight: 2.5, dashArray: "6 6" }));
 DATA.days.forEach(day => {
