@@ -354,12 +354,14 @@ with tab_plan:
             begin = day["begin_min"][k] if "begin_min" in day else arrive
             total_wait += begin - arrive
             t = begin + stay
+            wait = int(round(begin - arrive))  # one rounded value for the status and the card
             hours = extras.hours.get(i) if extras is not None else None
             status = "unknown"
             if isinstance(hours, dict) and hours:
-                # minutes past midnight roll over to the next weekday inside is_open_at
-                ok = open_for(hours, wd, begin, stay)
-                status = ("wait" if begin - arrive >= 1 else "open") if ok else "closed"
+                # the planner's verdict when it timed the day; otherwise check the stay here
+                # (minutes past midnight roll over to the next weekday inside is_open_at)
+                ok = not day["closed"][k] if "closed" in day else open_for(hours, wd, begin, stay)
+                status = ("wait" if wait > 0 else "open") if ok else "closed"
                 closed += status == "closed"
             d0 = float(haversine(start[0], start[1], row.lat, row.lon))
             top = 100 * (1 - np.searchsorted(eligible_pop, eng["filt"].popularity[i]) / len(eligible_pop))
@@ -368,7 +370,7 @@ with tab_plan:
                 "name": row["name"], "lat": float(row.lat), "lon": float(row.lon), "stars": float(row.stars),
                 "reviews": int(row.review_count), "pred": plan["stars"][i], "rank": rank_of[i], "tags": tags,
                 "leg_km": leg, "leg_min": int(round(leg / WALK_KMH * 60)), "arrive": hhmm(arrive),
-                "wait": int(round(begin - arrive)), "begin": hhmm(begin),
+                "wait": wait, "begin": hhmm(begin),
                 # hours of the opening that covers the arrival (Tue 01:00 in a Mon 17:00-02:00 opening: Monday)
                 "hours": hours_today(hours, hours_day_at(hours, wd, begin)) if hours else None,
                 "status": status,
