@@ -69,7 +69,7 @@ st.markdown(f"""
   #MainMenu, footer {{ visibility: hidden; }}
   header[data-testid="stHeader"] {{ background: transparent; height: 0; }}
   .block-container {{ padding-top: 2.4rem; padding-bottom: 2rem; max-width: 1480px; }}
-  .tr-head {{ display: flex; align-items: baseline; gap: 14px; margin-bottom: 4px; }}
+  .tr-head {{ display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 14px; row-gap: 2px; margin-bottom: 4px; }}
   .tr-logo {{ font-size: 26px; font-weight: 700; letter-spacing: -0.02em; color: {INK}; }}
   .tr-logo span {{ color: {ACCENT}; }}
   .tr-sub {{ color: {MUTED}; font-size: 14px; }}
@@ -77,10 +77,24 @@ st.markdown(f"""
   .tile {{ background: #fff; border: 1px solid {BORDER}; border-radius: 12px; padding: 14px 16px;
            box-shadow: 0 1px 2px rgba(16,24,40,.06), 0 4px 12px rgba(16,24,40,.04); }}
   .tile.accent {{ background: {ACCENT_TINT}; border-color: #f6c7b3; }}
+  .tile.accent .lab, .tile.accent .note {{ color: #4b5563; }}  /* muted grey is 4.27:1 on the tint; this is 6.7:1 */
   .tile .lab {{ font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: {MUTED}; font-weight: 600; }}
   .tile .val {{ font-size: 28px; font-weight: 600; color: {INK}; font-variant-numeric: tabular-nums; margin-top: 2px; }}
   .tile .val small {{ font-size: 15px; color: {MUTED}; font-weight: 500; margin-left: 2px; }}
-  .tile .note {{ font-size: 12px; color: {MUTED}; margin-top: 2px; }}
+  .tile .note {{ font-size: 12px; color: {MUTED}; margin-top: 2px; line-height: 1.45; }}
+  /* tablet: 2 x 2 tiles; phone: smaller numbers so each tile stays on one line */
+  @media (max-width: 1100px) {{ .tiles {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} }}
+  @media (max-width: 560px) {{
+    .tiles {{ gap: 10px; }}
+    .tile {{ padding: 12px; }}
+    .tile .val {{ font-size: 22px; }}
+    .tr-sub {{ flex-basis: 100%; font-size: 13px; }}
+  }}
+  /* sidebar: numbered steps (one question per step, advanced options folded) */
+  .step {{ display: flex; align-items: center; gap: 8px; margin: 18px 0 6px; font-size: 14px; font-weight: 700; color: {INK}; }}
+  .step .n {{ width: 22px; height: 22px; border-radius: 50%; background: {ACCENT}; color: #fff; font-size: 12px;
+              display: grid; place-items: center; flex: none; }}
+  .step-first {{ margin-top: 4px; }}
   .card-title {{ font-weight: 700; font-size: 15px; color: {INK}; margin-bottom: 0; }}
   .card-take {{ color: {MUTED}; font-size: 13px; margin: 2px 0 6px; }}
   table.tr {{ width: 100%; border-collapse: collapse; font-size: 13.5px; background: #fff; }}
@@ -89,7 +103,7 @@ st.markdown(f"""
   table.tr th:first-child, table.tr td:first-child {{ text-align: left; }}
   table.tr td {{ text-align: right; padding: 8px 10px; border-bottom: 1px solid #f0f1f3; font-variant-numeric: tabular-nums; }}
   table.tr td.best {{ font-weight: 700; background: {ACCENT_TINT}; color: #b8471c; }}
-  section[data-testid="stSidebar"] .stMarkdown h3 {{ font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: {MUTED}; }}
+  section[data-testid="stSidebar"] [data-testid="stExpander"] summary {{ font-weight: 600; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -187,13 +201,19 @@ tab_plan, tab_results, tab_data = st.tabs(["🗺️ 코스 짜기", "📊 실험
 METHODS = {"학습 모델 (로지스틱 회귀)": "learned", "BPR 순위 학습 + 거리": "bpr", "고정 규칙 (거리 감쇠 τ)": "fixed"}
 DAYS_KO = dict(zip(DAYS, ["월", "화", "수", "목", "금", "토", "일"]))
 
+def step(n, title, first=False):
+    """Numbered sidebar step header (H.Dot-style stepped setup: one question per step)."""
+    st.markdown(f'<div class="step{" step-first" if first else ""}"><span class="n">{n}</span>{title}</div>',
+                unsafe_allow_html=True)
+
+
 with st.sidebar:
-    st.markdown("### 누구를 위한 코스?")
+    step(1, "누구를 위한 코스인가요?", first=True)
     user_labels = {"새 방문자 (취향 정보 없음)": None}
     user_labels.update({f"사용자 {u} · 평점 {int(eng['n_train'][u])}개": u for u in eng["examples"]})
     user = user_labels[st.selectbox("사용자", list(user_labels), label_visibility="collapsed")]
 
-    st.markdown("### 어디서 출발?")
+    step(2, "어디서 출발하나요?")
     start_opts = list(STARTS)
     if user is not None:
         start_opts = ["이 사용자의 생활권 중심"] + start_opts
@@ -210,14 +230,14 @@ with st.sidebar:
     else:
         start = STARTS[start_name]
 
-    st.markdown("### 무엇을?")
+    step(3, "무엇을, 얼마나?")
     category = st.selectbox("카테고리", CATEGORIES + [""], format_func=lambda c: f"{CATEGORY_KO[c]}" + (f" · {c}" if c else ""),
                             label_visibility="collapsed")
     c1, c2 = st.columns(2)
     n = c1.slider("하루에 갈 곳", 3, 8, 6)
     days = c2.slider("며칠", 1, 3, 1, help="2일 이상이면 추천 장소를 k-means로 동네별로 묶어 하루에 한 동네씩 돌아요.")
 
-    st.markdown("### 언제?")
+    step(4, "언제 가나요?")
     has_hours = eng["extras"] is not None
     c1, c2 = st.columns(2)
     weekday = c1.selectbox("요일", DAYS, index=5, format_func=lambda d: DAYS_KO[d] + "요일")
@@ -228,20 +248,29 @@ with st.sidebar:
                           "곳만 골라요. 영업시간 정보가 없는 곳은 포함해요."
                           if has_hours else "python -m tasteroute.item_extras 를 먼저 실행하면 켤 수 있어요.")
 
-    st.markdown("### 어떻게 고를까?")
-    options = [k for k, v in METHODS.items()
-               if not (v == "learned" and eng["learned"] is None) and not (v == "bpr" and eng["bpr"] is None)]
-    method = METHODS[st.radio("순위 방식", options, label_visibility="collapsed")]
-    tau = 2.0
-    if method in ("fixed", "bpr"):
-        tau = st.slider("τ (km): 클수록 먼 곳도 추천", 0.5, 5.0, 2.0, 0.5)
-    diversity = st.slider("다양성", 0.0, 0.8, 0.0, 0.1,
-                          help="0이면 점수 순서 그대로. 올릴수록 서로 다른 종류의 가게를 섞어요 (MMR).")
-    walking = st.toggle("실제 도보 경로 (OpenStreetMap)", value=True,
-                        help="끄면 장소 사이를 직선으로 잇고, 거리도 직선거리로 계산해요.")
+    # advanced: the defaults are the experiments' best settings, so most visitors never open this
+    with st.expander("고급 설정 · 추천 방식과 경로"):
+        options = [k for k, v in METHODS.items()
+                   if not (v == "learned" and eng["learned"] is None) and not (v == "bpr" and eng["bpr"] is None)]
+        method = METHODS[st.radio("순위 방식", options)]
+        tau = 2.0
+        if method in ("fixed", "bpr"):
+            tau = st.slider("τ (km): 클수록 먼 곳도 추천", 0.5, 5.0, 2.0, 0.5)
+        diversity = st.slider("다양성", 0.0, 0.8, 0.0, 0.1,
+                              help="0이면 점수 순서 그대로. 올릴수록 서로 다른 종류의 가게를 섞어요 (MMR).")
+        walking = st.toggle("실제 도보 경로 (OpenStreetMap)", value=True,
+                            help="끄면 장소 사이를 직선으로 잇고, 거리도 직선거리로 계산해요.")
 
 # ---------------------------------------------------------------- tab 1: plan
 DAY_COLORS = ["#eb6834", "#2a78d6", "#1baf7a"]
+
+
+def hm(minutes, unit=True):
+    """'3시간 6분' (big number with small units for a tile) or plain '3시간 6분' text."""
+    h, m = divmod(int(round(minutes)), 60)
+    if not unit:
+        return f"{h}시간 {m}분" if h else f"{m}분"
+    return (f"{h}<small>시간</small> {m}<small>분</small>" if h else f"{m}<small>분</small>")
 
 
 def hhmm(minute):
@@ -314,13 +343,14 @@ with tab_plan:
     n_places = sum(len(x["places"]) for x in plan["days"])
     dist_kind = "도보" if walking else "직선"
     method_note = {"learned": "학습 모델", "bpr": f"BPR + 거리 τ={tau:g}km", "fixed": f"고정 규칙 τ={tau:g}km"}[method]
-    hours_note = f"영업 중인 곳만 · {closed}곳 도착 시 닫힘" if use_hours else "영업시간 무시"
+    hours_note = f"도착 시 닫힘 {closed}곳" if use_hours else "영업시간 무시"
+    end_note = f" · {view_days[0]['end']} 끝" if len(view_days) == 1 else ""
     st.markdown(f"""
     <div class="tiles">
       <div class="tile"><div class="lab">총 {dist_kind} 거리</div><div class="val">{total_km:.1f}<small>km</small></div>
         <div class="note">직선으로 재면 {sum(x['straight_km'] for x in plan['days']):.1f}km</div></div>
-      <div class="tile"><div class="lab">{"걷는 시간" if walking else "직선 환산 시간"} + 머무는 시간</div><div class="val">{walk_min:.0f}<small>분</small> + {n_places * stay}<small>분</small></div>
-        <div class="note">{len(plan['days'])}일 · 시속 {WALK_KMH:g}km · {hours_note}</div></div>
+      <div class="tile"><div class="lab">총 소요 시간</div><div class="val">{hm(walk_min + n_places * stay)}</div>
+        <div class="note">{"걷기" if walking else "걷기(직선 환산)"} {hm(walk_min, unit=False)} · 머무름 {hm(n_places * stay, unit=False)}{end_note} · {hours_note}</div></div>
       <div class="tile"><div class="lab">방문 장소</div><div class="val">{n_places}<small>곳</small></div>
         <div class="note">{CATEGORY_KO[category]} · {method_note}{f" · 다양성 {diversity:g}" if diversity else ""}</div></div>
       <div class="tile accent"><div class="lab">추천 순서보다</div><div class="val">▼ {saved:.1f}<small>km</small></div>
