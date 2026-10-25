@@ -36,6 +36,11 @@ KS = (5, 10)
 TAUS = [0.5, 1, 2, 3, 5, 10, 20, 50, 100, 1000]
 
 
+def fmt_km(km):
+    """'2.1 km', or 'n/a' when no user had a non-empty list (mean_dist_km is None)."""
+    return "n/a" if km is None else f"{km:.1f} km"
+
+
 def score_lists(lists, relevant, dists):
     """Average ranking metrics over users. lists/relevant/dists are per-user."""
     out = {}
@@ -98,7 +103,7 @@ def main():
             hybrid_cands = [(c, m.score_all(u)[c]) for u, c in zip(users, cands)]
     for name, res in out["models"].items():
         print(f"{name:<11} P@10 {res['P@10']:.4f}  NDCG@10 {res['NDCG@10']:.4f}  "
-              f"dist {res['mean_dist_km']:.1f} km  coverage {res['coverage']:.4f}", flush=True)
+              f"dist {fmt_km(res['mean_dist_km'])}  coverage {res['coverage']:.4f}", flush=True)
 
     for decay in DECAYS:
         for tau in TAUS:
@@ -110,7 +115,7 @@ def main():
             res = score_lists(lists, relevant, dists)
             out["rerank"].append({"decay": decay, "tau": tau, **res})
             print(f"rerank {decay:<8} tau={tau:<5} NDCG@10 {res['NDCG@10']:.4f}  P@10 {res['P@10']:.4f}  "
-                  f"dist {res['mean_dist_km']:.1f} km", flush=True)
+                  f"dist {fmt_km(res['mean_dist_km'])}", flush=True)
 
     (ROOT / "results").mkdir(exist_ok=True)
     (ROOT / "results" / "ranking.json").write_text(json.dumps(out, indent=1, allow_nan=False))

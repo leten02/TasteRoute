@@ -69,3 +69,13 @@ def test_distance_weight_rejects_non_positive_tau():
     for tau in (0, -1):
         with pytest.raises(ValueError):
             distance_weight([0.0, 1.0], tau)
+
+
+def test_ranking_metrics_reject_bad_k_and_count_duplicates_once():
+    import pytest
+
+    from tasteroute.metrics import ndcg_at_k, precision_at_k
+
+    with pytest.raises(ValueError):
+        precision_at_k([1, 2], {1}, 0)
+    assert ndcg_at_k([11, 11], {11}, 2) == 1.0  # not 1.63
