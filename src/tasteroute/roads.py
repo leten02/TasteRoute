@@ -141,13 +141,50 @@ class RoadNetwork:
                             **download_kw)
 
     def nearest_node(self, lat, lon):
-        """Index of the street node closest (straight line) to each point."""
-        lat, lon = np.atleast_1d(lat), np.atleast_1d(lon)
-        return np.array([np.argmin(haversine(a, b, self.lat, self.lon)) for a, b in zip(lat, lon)])
+        """Index of the street node closest to each point.
+
+        scipy.spatial.cKDTree(points).query(q) finds the nearest of `points` to
+        each query in O(log n). Coordinates are scaled to km first (longitude
+        shrinks by cos(latitude)) so nearest in the tree means nearest on the map.
+        """
+        lat, lon = np.atleast_1d(lat).astype(float), np.atleast_1d(lon).astype(float)
+        if not hasattr(self, "_tree"):
+            from scipy.spatial import cKDTree
+
+            self._kx = KM_PER_DEG_LAT * np.cos(np.radians(self.lat.mean()))
+            self._tree = cKDTree(np.column_stack([self.lat * KM_PER_DEG_LAT, self.lon * self._kx]))
+        _, idx = self._tree.query(np.column_stack([lat * KM_PER_DEG_LAT, lon * self._kx]))
+        return np.asarray(idx)
 
     def routes(self, lat, lon):
         """Shortest walking routes between every pair of the given points."""
         return Routes(self, lat, lon)
+
+    def contains(self, lat, lon, margin_km=0.2):
+        """True for points inside the network's node extent (shrunk by a margin).
+
+        Points near the edge of a downloaded box can have their only route
+        leave the box, so they are better left out of distance experiments.
+        """
+        lat, lon = np.asarray(lat, dtype=float), np.asarray(lon, dtype=float)
+        dlat = margin_km / KM_PER_DEG_LAT
+        dlon = margin_km / (KM_PER_DEG_LAT * np.cos(np.radians(self.lat.mean())))
+        return ((lat >= self.lat.min() + dlat) & (lat <= self.lat.max() - dlat)
+                & (lon >= self.lon.min() + dlon) & (lon <= self.lon.max() - dlon))
+
+    def distances_from(self, lat, lon, lats, lons):
+        """Walking km from one point to many points (one Dijkstra run).
+
+        Same snapping as Routes: each point joins its nearest street node by a
+        straight hop. Unreachable targets get NaN.
+        """
+        src = self.nearest_node(lat, lon)[0]
+        dst = self.nearest_node(lats, lons)
+        d = dijkstra(self.graph, directed=True, indices=src)[dst]
+        snap_src = haversine(lat, lon, self.lat[src], self.lon[src])
+        snap_dst = haversine(np.asarray(lats), np.asarray(lons), self.lat[dst], self.lon[dst])
+        out = d + snap_src + snap_dst
+        return np.where(np.isfinite(out), out, np.nan)
 
 
 class Routes:
