@@ -98,3 +98,35 @@ def test_plan_day_with_no_places_does_not_touch_roads():
     filt = CandidateFilter(items, train, seen=train.iloc[:0], min_support=1)
     plan = plan_day(np.full(2, 4.0), filt, items, (40.0, -75.0), n=2, mask=np.zeros(2, dtype=bool), roads=boom)
     assert plan["places"] == []
+
+
+def test_cached_network_covering_a_box_is_reused(tmp_path):
+    net, lat, lon = _grid()
+    box = (40.01, 39.99, -74.99, -75.01)
+    np.savez_compressed(tmp_path / "walk_big.npz", lat=net.lat, lon=net.lon, u=[0], v=[1], length_km=[0.1],
+                        box=np.array(box))
+    np.savez_compressed(tmp_path / "walk_old.npz", lat=net.lat, lon=net.lon, u=[0], v=[1], length_km=[0.1])  # no box
+    inside = RoadNetwork._cached_covering(tmp_path, (40.005, 39.995, -74.995, -75.005))
+    assert inside is not None and inside.name == "walk_big.npz"
+    assert RoadNetwork._cached_covering(tmp_path, (40.05, 39.99, -74.99, -75.01)) is None  # sticks out north
+    got = RoadNetwork.download(40.005, 39.995, -74.995, -75.005, cache_dir=tmp_path)  # no network access needed
+    assert len(got.lat) == len(net.lat)
+
+
+def test_cache_only_raises_without_download(tmp_path):
+    import pytest
+
+    with pytest.raises(RuntimeError):
+        RoadNetwork.download(40.01, 39.99, -74.99, -75.01, cache_dir=tmp_path, tries=0)
+
+
+def test_cache_reads_same_box_legacy_file_and_skips_damaged(tmp_path):
+    import hashlib
+
+    net, lat, lon = _grid()
+    box = (40.01, 39.99, -74.99, -75.01)
+    name = f"walk_{hashlib.md5(str(tuple(round(x, 4) for x in box)).encode()).hexdigest()[:12]}.npz"
+    np.savez_compressed(tmp_path / name, lat=net.lat, lon=net.lon, u=[0], v=[1], length_km=[0.1])  # legacy: no box
+    (tmp_path / "walk_broken.npz").write_bytes(b"not a zip file")
+    got = RoadNetwork.download(*box, cache_dir=tmp_path, tries=0)
+    assert len(got.lat) == len(net.lat)

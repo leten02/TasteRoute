@@ -1,0 +1,419 @@
+"""TasteRoute dashboard: plan a walking day on a map and browse the results.
+
+Usage:  streamlit run app/dashboard.py
+Needs:  data/processed/ (data_analysis_preprocessing/preprocess.py) and
+        pip install -e ".[app]". Walking routes download the street network
+        around the chosen places on first use (about a minute, then cached).
+
+Tabs:
+    코스 짜기   pick a start, category, user and ranking method; the day's
+                places, the walking route on a map and per-leg distances
+    실험 결과   model comparison, distance re-ranking (RQ1), learned distance
+                model, route optimization (RQ3), from results/*.json
+    데이터      preprocessing funnel and the EDA figures
+
+Yelp data stays on this machine: the app reads data/processed/ locally and is
+not meant to be deployed publicly (Yelp terms forbid redistribution).
+"""
+import json
+from pathlib import Path
+
+import altair as alt
+import numpy as np
+import pandas as pd
+import streamlit as st
+import streamlit.components.v1 as components
+
+from tasteroute.candidates import CandidateFilter
+from tasteroute.data import get_split, load_item_features, load_items, load_ratings, n_users_items
+from tasteroute.geo import haversine, user_anchors
+from tasteroute.models.cbf import CBF
+from tasteroute.models.visit import LogisticRegression, VisitFeatures
+from tasteroute.pipeline import plan_day
+from tasteroute.roads import WALK_KMH, RoadNetwork
+
+ROOT = Path(__file__).resolve().parents[1]
+RES = ROOT / "results"
+VIEW = (Path(__file__).parent / "route_view.html").read_text(encoding="utf-8")
+
+ACCENT, ACCENT_TINT, INK, MUTED, BORDER, GREY = "#eb6834", "#fdeee7", "#1f2430", "#6b7280", "#e5e7eb", "#c9ced6"
+SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#6250d6"]  # same fixed order as experiments/figures.py
+
+STARTS = {
+    "필라델피아 시청": (39.9526, -75.1636),
+    "Reading Terminal Market": (39.9533, -75.1590),
+    "Rittenhouse Square": (39.9496, -75.1718),
+    "Old City · 독립기념관": (39.9489, -75.1500),
+    "University City · 펜실베이니아대": (39.9522, -75.1932),
+    "Italian Market": (39.9387, -75.1580),
+    "Fishtown": (39.9725, -75.1340),
+}
+CATEGORIES = ["Bakeries", "Coffee & Tea", "Desserts", "Breakfast & Brunch", "Pizza", "Sandwiches", "Korean",
+              "Japanese", "Chinese", "Italian", "Mexican", "Vegan", "Ice Cream & Frozen Yogurt", "Bars"]
+CATEGORY_KO = {"Bakeries": "빵집", "Coffee & Tea": "카페", "Desserts": "디저트", "Breakfast & Brunch": "브런치",
+               "Pizza": "피자", "Sandwiches": "샌드위치", "Korean": "한식", "Japanese": "일식", "Chinese": "중식",
+               "Italian": "이탈리안", "Mexican": "멕시칸", "Vegan": "비건", "Ice Cream & Frozen Yogurt": "아이스크림",
+               "Bars": "바", "": "전체 음식점"}
+GENERIC = {"Restaurants", "Food", "Nightlife", "Food Delivery Services", "Event Planning & Services", "Caterers"}
+
+st.set_page_config(page_title="TasteRoute", page_icon="🥐", layout="wide", initial_sidebar_state="expanded")
+
+st.markdown(f"""
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap');
+  html, body, [class*="css"], .stMarkdown, .stText {{ font-family: Inter, -apple-system, "Apple SD Gothic Neo", sans-serif; }}
+  #MainMenu, footer {{ visibility: hidden; }}
+  header[data-testid="stHeader"] {{ background: transparent; height: 0; }}
+  .block-container {{ padding-top: 2.4rem; padding-bottom: 2rem; max-width: 1480px; }}
+  .tr-head {{ display: flex; align-items: baseline; gap: 14px; margin-bottom: 4px; }}
+  .tr-logo {{ font-size: 26px; font-weight: 700; letter-spacing: -0.02em; color: {INK}; }}
+  .tr-logo span {{ color: {ACCENT}; }}
+  .tr-sub {{ color: {MUTED}; font-size: 14px; }}
+  .tiles {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 6px 0 16px; }}
+  .tile {{ background: #fff; border: 1px solid {BORDER}; border-radius: 12px; padding: 14px 16px;
+           box-shadow: 0 1px 2px rgba(16,24,40,.06), 0 4px 12px rgba(16,24,40,.04); }}
+  .tile.accent {{ background: {ACCENT_TINT}; border-color: #f6c7b3; }}
+  .tile .lab {{ font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: {MUTED}; font-weight: 600; }}
+  .tile .val {{ font-size: 28px; font-weight: 600; color: {INK}; font-variant-numeric: tabular-nums; margin-top: 2px; }}
+  .tile .val small {{ font-size: 15px; color: {MUTED}; font-weight: 500; margin-left: 2px; }}
+  .tile .note {{ font-size: 12px; color: {MUTED}; margin-top: 2px; }}
+  .card-title {{ font-weight: 700; font-size: 15px; color: {INK}; margin-bottom: 0; }}
+  .card-take {{ color: {MUTED}; font-size: 13px; margin: 2px 0 6px; }}
+  table.tr {{ width: 100%; border-collapse: collapse; font-size: 13.5px; background: #fff; }}
+  table.tr th {{ text-align: right; color: {MUTED}; font-weight: 600; font-size: 12px; padding: 8px 10px;
+                 border-bottom: 1px solid {BORDER}; position: sticky; top: 0; background: #fff; }}
+  table.tr th:first-child, table.tr td:first-child {{ text-align: left; }}
+  table.tr td {{ text-align: right; padding: 8px 10px; border-bottom: 1px solid #f0f1f3; font-variant-numeric: tabular-nums; }}
+  table.tr td.best {{ font-weight: 700; background: {ACCENT_TINT}; color: #b8471c; }}
+  section[data-testid="stSidebar"] .stMarkdown h3 {{ font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: {MUTED}; }}
+</style>
+""", unsafe_allow_html=True)
+
+
+# ---------------------------------------------------------------- engine (cached)
+@st.cache_resource(show_spinner="데이터와 모델을 준비하는 중... (처음 한 번, 약 20초)")
+def load_engine():
+    """Data, the CBF rating model, the candidate filter and the learned visit model."""
+    r = load_ratings()
+    items = load_items()
+    n_users, n_items = n_users_items(r)
+    X, _ = load_item_features()
+    train = get_split(r, "train")
+    cbf = CBF(n_users, n_items, X, lam=30).fit(train)
+    filt = CandidateFilter(items, train, seen=pd.concat([train, get_split(r, "val")]))
+    anchors = user_anchors(train, items, n_users)
+    feats = VisitFeatures(items, train, anchors, filt.popularity)
+    learned = None
+    if (RES / "learned_distance.json").exists():
+        m = json.loads((RES / "learned_distance.json").read_text())["model"]
+        learned = (LogisticRegression.from_dict(m["params"]), feats, m["columns"])
+    n_train = train.groupby("u").size()
+    # example users: the most active users whose anchor is in the city (plus the RQ3 example)
+    active = n_train[n_train >= 40].index.values
+    examples = [1458] + [int(u) for u in active[:400:40] if u != 1458]
+    pop_rank = filt.popularity[filt.eligible]
+    return {"items": items, "cbf": cbf, "filt": filt, "anchors": anchors, "learned": learned,
+            "n_train": n_train, "examples": examples, "eligible_pop": np.sort(pop_rank)}
+
+
+@st.cache_data(show_spinner=False)
+def run_plan(user, start, category, n, method, tau, walking, cache_only=False):
+    """plan_day for these choices (cached per combination).
+
+    cache_only: use only street networks already on disk (after a failed download).
+    """
+    eng = load_engine()
+    items, cbf = eng["items"], eng["cbf"]
+    if user is None:
+        pred = np.clip(cbf.bias.mu + cbf.bias.b_i, 1, 5)  # new visitor: mu + b_i only
+    else:
+        pred = cbf.score_all(user)
+    mask = None
+    if category:
+        mask = items.categories.str.contains(category, regex=False, na=False).values
+    visit = eng["learned"] if method == "learned" else None
+
+    def streets(lats, lons):
+        # one quick try: a busy OpenStreetMap server should not freeze the app
+        return RoadNetwork.around(lats, lons, tries=0 if cache_only else 1, timeout=25)
+
+    plan = plan_day(pred, eng["filt"], items, start, user=user, n=n, mask=mask, tau=tau,
+                    roads=streets if walking else None, visit=visit)
+    plan["pred"] = {int(i): float(pred[i]) for i in plan["ranked"]}
+    return plan
+
+
+# ---------------------------------------------------------------- header
+st.markdown('<div class="tr-head"><div class="tr-logo">Taste<span>Route</span></div>'
+            '<div class="tr-sub">취향 기반 장소 추천과 실제 길을 따라가는 하루 동선 · Philadelphia, Yelp Open Dataset</div></div>',
+            unsafe_allow_html=True)
+
+eng = load_engine()
+tab_plan, tab_results, tab_data = st.tabs(["🗺️ 코스 짜기", "📊 실험 결과", "🔎 데이터"])
+
+# ---------------------------------------------------------------- sidebar controls
+with st.sidebar:
+    st.markdown("### 누구를 위한 코스?")
+    user_labels = {"새 방문자 (취향 정보 없음)": None}
+    user_labels.update({f"사용자 {u} · 평점 {int(eng['n_train'][u])}개": u for u in eng["examples"]})
+    user = user_labels[st.selectbox("사용자", list(user_labels), label_visibility="collapsed")]
+
+    st.markdown("### 어디서 출발?")
+    start_opts = list(STARTS)
+    if user is not None:
+        start_opts = ["이 사용자의 생활권 중심"] + start_opts
+    start_opts.append("좌표 직접 입력")
+    start_name = st.selectbox("출발지", start_opts, label_visibility="collapsed")
+    if start_name == "이 사용자의 생활권 중심":
+        start = tuple(float(x) for x in eng["anchors"][user])
+    elif start_name == "좌표 직접 입력":
+        c1, c2 = st.columns(2)
+        # limited to greater Philadelphia: the data covers 15 km around City Hall
+        start = (c1.number_input("위도", value=39.9526, min_value=39.80, max_value=40.10, format="%.4f"),
+                 c2.number_input("경도", value=-75.1636, min_value=-75.40, max_value=-74.90, format="%.4f"))
+        start_name = f"{start[0]:.4f}, {start[1]:.4f}"
+    else:
+        start = STARTS[start_name]
+
+    st.markdown("### 무엇을?")
+    category = st.selectbox("카테고리", CATEGORIES + [""], format_func=lambda c: f"{CATEGORY_KO[c]}" + (f" · {c}" if c else ""),
+                            label_visibility="collapsed")
+    n = st.slider("방문할 장소 수", 3, 8, 6)
+
+    st.markdown("### 어떻게 고를까?")
+    has_learned = eng["learned"] is not None
+    method_label = st.radio("순위 방식", ["학습 모델 (로지스틱 회귀)", "고정 규칙 (거리 감쇠 τ)"] if has_learned
+                            else ["고정 규칙 (거리 감쇠 τ)"], label_visibility="collapsed")
+    method = "learned" if method_label.startswith("학습") else "fixed"
+    tau = 2.0
+    if method == "fixed":
+        tau = st.slider("τ (km): 클수록 먼 곳도 추천", 0.5, 5.0, 2.0, 0.5)
+    walking = st.toggle("실제 도보 경로 (OpenStreetMap)", value=True,
+                        help="끄면 장소 사이를 직선으로 잇고, 거리도 직선거리로 계산해요.")
+    st.caption("학습 모델: 거리·개인 이동 반경·예상 별점·인기도의 가중치를 데이터에서 학습 "
+               "([설명](https://github.com/leten02/TasteRoute/blob/develop/docs/ML_Learned_Distance.md))")
+
+# ---------------------------------------------------------------- tab 1: plan
+with tab_plan:
+    # after one failed street download, stay on straight lines until the user retries
+    if walking and st.session_state.get("osm_failed"):
+        c1, c2 = st.columns([5, 1])
+        c1.info("OpenStreetMap 서버가 응답하지 않아 직선 경로로 보여드리고 있어요. "
+                "이미 받아 둔 지역은 도보 경로로 나와요.")
+        if c2.button("도보 경로 다시 시도"):
+            st.session_state.osm_failed = False
+            st.rerun()
+    try:
+        with st.spinner("코스를 짜는 중... (새 지역의 도로망은 처음 한 번 받아요)"):
+            plan = run_plan(user, start, category, n, method, tau, walking,
+                            cache_only=bool(st.session_state.get("osm_failed")))
+    except RuntimeError:  # street download failed, or not cached while the server is down
+        if not st.session_state.get("osm_failed"):
+            st.session_state.osm_failed = True
+            st.warning("OpenStreetMap에서 이 지역 도로망을 받지 못해 직선 경로로 보여드려요.")
+        plan = run_plan(user, start, category, n, method, tau, False)
+        walking = False
+
+    items = eng["items"]
+    saved = plan["rec_order_km"] - plan["route_km"]
+    minutes = plan["route_km"] / WALK_KMH * 60
+    dist_kind = "도보" if walking else "직선"
+    st.markdown(f"""
+    <div class="tiles">
+      <div class="tile"><div class="lab">총 {dist_kind} 거리</div><div class="val">{plan['route_km']:.1f}<small>km</small></div>
+        <div class="note">직선으로 재면 {plan['straight_km']:.1f}km</div></div>
+      <div class="tile"><div class="lab">{"예상 걷는 시간" if walking else "직선거리 환산 시간"}</div><div class="val">{minutes:.0f}<small>분</small></div>
+        <div class="note">{"" if walking else "실제 길은 약 1.3배 · "}시속 {WALK_KMH:g}km 기준, 머무는 시간 제외</div></div>
+      <div class="tile"><div class="lab">방문 장소</div><div class="val">{len(plan['places'])}<small>곳</small></div>
+        <div class="note">{CATEGORY_KO[category]} · {"학습 모델" if method == "learned" else f"고정 규칙 τ={tau:g}km"}</div></div>
+      <div class="tile accent"><div class="lab">추천 순서보다</div><div class="val">▼ {saved:.1f}<small>km</small></div>
+        <div class="note">Held-Karp 최적 순서 · {saved / max(plan['rec_order_km'], 1e-9) * 100:.0f}% 절약</div></div>
+    </div>""", unsafe_allow_html=True)
+
+    eligible_pop = eng["eligible_pop"]
+    rank_of = {i: k + 1 for k, i in enumerate(plan["ranked"])}
+    stops = []
+    for i, leg in zip(plan["places"], plan["legs_km"]):
+        row = items.iloc[i]
+        d0 = float(haversine(start[0], start[1], row.lat, row.lon))
+        top = 100 * (1 - np.searchsorted(eligible_pop, eng["filt"].popularity[i]) / len(eligible_pop))
+        tags = [c.strip() for c in str(row.categories).split(",") if c.strip() not in GENERIC][:3]
+        stops.append({
+            "name": row["name"], "lat": float(row.lat), "lon": float(row.lon), "stars": float(row.stars),
+            "reviews": int(row.review_count), "pred": plan["pred"][i], "rank": rank_of[i], "tags": tags,
+            "leg_km": leg, "leg_min": int(round(leg / WALK_KMH * 60)),
+            "why": f"출발지에서 직선 {d0:.1f}km · 인기 상위 {max(top, 0.1):.1f}%",
+        })
+    lats = [p[0] for p in plan["path"]] + [start[0]]
+    lons = [p[1] for p in plan["path"]] + [start[1]]
+    data = {
+        "title": f"오늘의 {CATEGORY_KO[category]} 코스",
+        "subtitle": f"{start_name}에서 출발 · 카드를 누르면 지도가 그곳으로 가요",
+        "walking": walking, "start": {"name": start_name, "lat": start[0], "lon": start[1]}, "stops": stops,
+        "path": plan["path"], "rec_path": plan["rec_path"],
+        "bounds": [[min(lons), min(lats)], [max(lons), max(lats)]],
+    }
+    # "</" escaped as "<\/" so a place name can never close the <script> holding the data
+    payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+    components.html(VIEW.replace("/*__DATA__*/null", payload), height=640)
+
+    with st.expander("이 코스는 어떻게 만들어졌나요?"):
+        st.markdown(f"""
+1. **예상 별점**: {"새 방문자라 전체 평균 + 장소 편향(μ + b_i)" if user is None else f"사용자 {user}의 취향(CBF: bias + 카테고리 취향)"}으로 모든 장소의 별점을 예측해요.
+2. **후보**: 영업 중이고 평점이 20개 이상이며, 이 사람이 아직 안 가 본 {CATEGORY_KO[category]}만 남기고 `예상 별점 + 5·log(1+인기도)` 상위 200곳을 후보로 뽑아요.
+3. **순위**: {"학습된 로지스틱 회귀가 거리, 개인 이동 반경, 예상 별점, 인기도로 방문 가능성을 점수 매겨요." if method == "learned" else f"점수 × e^(−거리/{tau:g}km)로 가까운 곳을 우대해요."} 상위 {n}곳을 골라요.
+4. **동선**: {"OpenStreetMap 보행 도로망에서 Dijkstra로 구한 도보 거리" if walking else "직선거리"}로 Held-Karp가 가장 짧은 방문 순서를 찾아요. 카드의 '추천 n위'는 3단계 순위, 지도 번호는 방문 순서예요.
+""")
+
+# ---------------------------------------------------------------- tab 2: results
+def chart_card(title, takeaway, chart):
+    """A bordered card with a title, a one-line takeaway and an Altair chart."""
+    with st.container(border=True):
+        st.markdown(f'<div class="card-title">{title}</div><div class="card-take">{takeaway}</div>', unsafe_allow_html=True)
+        st.altair_chart(chart.properties(height=260).configure_axis(
+            labelFont="Inter", titleFont="Inter", labelColor=MUTED, titleColor=MUTED, gridColor="#eef0f3",
+            domainColor=BORDER, tickColor=BORDER).configure_view(strokeWidth=0), width="stretch")
+
+
+def load_json(name):
+    """results/<name>.json, or None when that experiment has not been run."""
+    p = RES / f"{name}.json"
+    return json.loads(p.read_text()) if p.exists() else None
+
+
+with tab_results:
+    mc, rk, rt, ld = (load_json(x) for x in ("model_compare", "ranking", "route", "learned_distance"))
+    if not all((mc, rk, rt)):
+        st.info("results/가 비어 있어요. `python experiments/run_all.py`로 실험을 먼저 돌려 주세요.")
+    else:
+        warm = mc["warm"]
+        best_rmse = min(warm.items(), key=lambda kv: kv[1]["rmse"])
+        tau2 = next(x for x in rk["rerank"] if x["decay"] == "exp" and x["tau"] == 2)
+        hyb = rk["models"]["Hybrid"]
+        s = rt["summary"]
+        st.markdown(f"""
+        <div class="tiles">
+          <div class="tile"><div class="lab">최저 test RMSE</div><div class="val">{best_rmse[1]['rmse']:.3f}</div>
+            <div class="note">{best_rmse[0]} · 전체 평균 {warm['Global mean']['rmse']:.3f}</div></div>
+          <div class="tile"><div class="lab">거리 재순위화 (RQ1)</div><div class="val">{hyb['mean_dist_km']:.1f}→{tau2['mean_dist_km']:.1f}<small>km</small></div>
+            <div class="note">NDCG@10 {hyb['NDCG@10']:.4f} → {tau2['NDCG@10']:.4f}</div></div>
+          <div class="tile"><div class="lab">NN + 2-opt 최적해 (RQ3)</div><div class="val">{s['nn_2opt_optimal_share'] * 100:.0f}<small>%</small></div>
+            <div class="note">평균 차이 {s['nn_2opt_mean_gap'] * 100:.1f}%</div></div>
+          <div class="tile accent"><div class="lab">추천 순서 그대로면</div><div class="val">+{s['rec_order_median_extra'] * 100:.0f}<small>%</small></div>
+            <div class="note">최적 경로보다 더 걷는 거리 (중앙값)</div></div>
+        </div>""", unsafe_allow_html=True)
+
+        c1, c2 = st.columns(2, gap="medium")
+        with c1:
+            df = pd.DataFrame([{"model": k, "rmse": v["rmse"], "lo": v["rmse_ci95"][0], "hi": v["rmse_ci95"][1]}
+                               for k, v in warm.items()]).sort_values("rmse")
+            df["ours"] = df.model.isin(["Hybrid", "CBF"])
+            # differences are tiny, so dots with 95% intervals instead of bars (bars must start at 0)
+            base = alt.Chart(df).encode(y=alt.Y("model:N", sort=list(df.model), title=None,
+                                                axis=alt.Axis(labelFontSize=12, labelColor=INK)))
+            err = base.mark_rule(strokeWidth=2.5, color=GREY).encode(
+                x=alt.X("lo:Q", title="test RMSE, 95% 신뢰구간 (낮을수록 좋음)", scale=alt.Scale(zero=False)), x2="hi:Q")
+            dots = base.mark_circle(size=110, opacity=1).encode(
+                x="rmse:Q", color=alt.condition("datum.ours", alt.value(ACCENT), alt.value("#8b93a1")),
+                tooltip=["model", alt.Tooltip("rmse:Q", format=".4f"), alt.Tooltip("lo:Q", format=".4f", title="CI 하한"),
+                         alt.Tooltip("hi:Q", format=".4f", title="CI 상한")])
+            labels = base.mark_text(align="left", dx=10, fontSize=11, color=MUTED).encode(
+                x="hi:Q", text=alt.Text("rmse:Q", format=".3f"))
+            chart_card("별점 예측: 모델 비교", "Bias, CBF, Hybrid가 통계적으로 같은 1.051. 평점이 희소해서 bias 외 구조를 배우기 어려워요.",
+                       err + dots + labels)
+        with c2:
+            rr = pd.DataFrame(rk["rerank"])
+            rr = rr[rr.decay.isin(["exp", "gaussian", "power", "cutoff"])]
+            pts = alt.Chart(rr).mark_line(point=alt.OverlayMarkDef(size=40), strokeWidth=2).encode(
+                x=alt.X("mean_dist_km:Q", title="추천 목록 평균 거리 (km)"),
+                y=alt.Y("NDCG@10:Q", title="NDCG@10"),
+                color=alt.Color("decay:N", scale=alt.Scale(domain=["exp", "gaussian", "cutoff", "power"], range=SERIES),
+                                legend=alt.Legend(title="감쇠 모양", orient="top", direction="horizontal")),
+                order="tau:Q", tooltip=["decay", "tau", alt.Tooltip("mean_dist_km:Q", format=".1f"),
+                                        alt.Tooltip("NDCG@10:Q", format=".4f")])
+            nod = alt.Chart(pd.DataFrame([{"d": hyb["mean_dist_km"], "n": hyb["NDCG@10"], "label": "거리 반영 없음"}])).encode(
+                x="d:Q", y="n:Q")
+            chart_card("RQ1 · 거리를 넣으면 더 가깝고 더 정확해요",
+                       "점 하나가 거리 감쇠 τ 하나. 사용자는 실제로 가까운 곳을 다녀서, 거리를 넣어도 정확도가 오히려 올라요.",
+                       pts + nod.mark_point(color=INK, size=80, filled=True) + nod.mark_text(dx=8, align="left", color=INK).encode(text="label"))
+
+        c3, c4 = st.columns(2, gap="medium")
+        with c3:
+            if ld:
+                lt = pd.DataFrame([{"method": k, "NDCG@10": v["NDCG@10"], "coverage": v["coverage"] * 100}
+                                   for k, v in ld["test"].items()])
+                names = {"popularity + fixed distance": "인기순 + 규칙", "blend + fixed distance (top 50)": "규칙 · 후보 50",
+                         "learned (no personal radius)": "학습 · 반경 없음", "learned (with personal radius)": "학습 + 개인 반경"}
+                lt["label"] = lt.method.map(lambda m: names.get(m, "규칙 · 후보 200"))
+                lt["ours"] = lt.method.str.startswith("learned")
+                base = alt.Chart(lt).encode(y=alt.Y("label:N", sort=list(lt.label), title=None,
+                                                    axis=alt.Axis(labelFontSize=12, labelColor=INK, labelLimit=160)))
+                bars = base.mark_bar(cornerRadiusEnd=4, height=18).encode(
+                    x=alt.X("NDCG@10:Q", title="NDCG@10 (test 3,000명)", scale=alt.Scale(domain=[0, 0.045])),
+                    color=alt.condition("datum.ours", alt.value(ACCENT), alt.value(GREY)),
+                    tooltip=["label", alt.Tooltip("NDCG@10:Q", format=".4f"), alt.Tooltip("coverage:Q", format=".2f", title="커버리지 %")])
+                vals = base.mark_text(align="left", dx=6, fontSize=11, color=INK).encode(
+                    x="NDCG@10:Q", text=alt.Text("NDCG@10:Q", format=".4f"))
+                ch = bars + vals
+                m = ld["model"]
+                chart_card("거리 민감도 학습 (로지스틱 회귀)",
+                           f"튜닝한 규칙과 유의한 차이는 없고(p = 0.36) 커버리지는 더 넓어요. 1km 더 멀면 인기도 {m['popularity_factor_per_km_at_1km']:.2f}배여야 상쇄.",
+                           ch)
+        with c4:
+            pu = pd.DataFrame(rt["per_user"])
+            pu["extra"] = (pu.rec_order / pu.optimal - 1) * 100
+            ch = alt.Chart(pu[pu.extra < 150]).mark_bar(color=ACCENT, cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
+                x=alt.X("extra:Q", bin=alt.Bin(step=10), title="추천 순서로 돌 때 더 걷는 거리 (%)"),
+                y=alt.Y("count():Q", title="사용자 수"), tooltip=[alt.Tooltip("count():Q", title="사용자 수")])
+            chart_card("RQ3 · 순서만 바꿔도 덜 걸어요",
+                       f"6곳을 추천 순서대로 돌면 최적보다 중앙값 {s['rec_order_median_extra'] * 100:.0f}% 더 걸어요 (test 3,000명).",
+                       ch)
+
+        with st.container(border=True):
+            st.markdown('<div class="card-title">모델 비교 표</div><div class="card-take">warm test 평점 69,847개 · '
+                        '95% 신뢰구간은 사용자 단위 bootstrap · p는 bias 대비 paired t-test · cold-start는 학습 평점 1/3/5개 사용자</div>',
+                        unsafe_allow_html=True)
+            rows = []
+            for k, v in warm.items():
+                cold = mc["cold"][k]
+                rows.append([k, v["rmse"], v["mae"], v["rmse_ci95"], v.get("vs_bias_p"), cold["1"], cold["3"], cold["5"]])
+            best = [min(r[c] for r in rows) for c in (1, 2, 5, 6, 7)]
+            html = ["<table class='tr'><tr><th>모델</th><th>RMSE</th><th>MAE</th><th>95% CI</th><th>p vs bias</th>"
+                    "<th>cold m=1</th><th>cold m=3</th><th>cold m=5</th></tr>"]
+            for r in rows:
+                cell = lambda v, b: f"<td class='best'>{v:.4f}</td>" if np.isclose(v, b) else f"<td>{v:.4f}</td>"  # noqa: E731
+                p = "-" if r[4] is None else f"{r[4]:.3g}"
+                html.append(f"<tr><td>{r[0]}</td>{cell(r[1], best[0])}{cell(r[2], best[1])}"
+                            f"<td>[{r[3][0]:.3f}, {r[3][1]:.3f}]</td><td>{p}</td>"
+                            f"{cell(r[5], best[2])}{cell(r[6], best[3])}{cell(r[7], best[4])}</tr>")
+            st.markdown("".join(html) + "</table>", unsafe_allow_html=True)
+
+        with st.expander("발표용 그림 전체 보기 (figures/)"):
+            figs = sorted((ROOT / "figures").glob("*.png"))
+            cols = st.columns(2)
+            for k, f in enumerate(figs):
+                cols[k % 2].image(str(f), caption=f.stem, width="stretch")
+
+# ---------------------------------------------------------------- tab 3: data
+EDA = [
+    ("P1_preprocessing_pipeline", "전처리 단계별 데이터 규모"), ("E6_spatial_density", "필라델피아 음식점 분포"),
+    ("E8_user_activity_radius", "사용자 활동 반경: 대부분 가까운 곳만 다녀요"), ("E4_popularity_lorenz", "인기도 쏠림 (Lorenz)"),
+    ("E3_activity_long_tail", "사용자 활동의 긴 꼬리"), ("E1_rating_distribution", "별점 분포"),
+    ("E9_category_frequency", "카테고리 빈도"), ("E12_popularity_vs_quality", "인기도와 평균 별점"),
+]
+with tab_data:
+    st.markdown("""
+    <div class="tiles">
+      <div class="tile"><div class="lab">원본 리뷰</div><div class="val">6.99<small>M</small></div><div class="note">Yelp Open Dataset 전체</div></div>
+      <div class="tile"><div class="lab">시청 15km 음식점</div><div class="val">809<small>K</small></div><div class="note">중복 제거 후 평점</div></div>
+      <div class="tile"><div class="lab">5-core 작업 데이터</div><div class="val">490,539</div><div class="note">사용자 31,743 · 장소 7,693</div></div>
+      <div class="tile accent"><div class="lab">밀도</div><div class="val">0.20<small>%</small></div><div class="note">사용자당 학습 평점 중앙값 6개</div></div>
+    </div>""", unsafe_allow_html=True)
+    fig_dir = ROOT / "data_analysis_preprocessing" / "figures"
+    cols = st.columns(2, gap="medium")
+    for k, (stem, caption) in enumerate(EDA):
+        f = fig_dir / f"{stem}.png"
+        if f.exists():
+            with cols[k % 2].container(border=True):
+                st.markdown(f'<div class="card-title">{caption}</div>', unsafe_allow_html=True)
+                st.image(str(f), width="stretch")
