@@ -52,7 +52,7 @@ src/tasteroute/               패키지
   data.py                       전처리 결과 로드, split 조회
   metrics.py                    RMSE, MAE, Precision/Recall/HitRate/NDCG@K
   models/                       baseline(전체 평균, bias), mf, item_knn, cbf, hybrid,
-                                visit(거리 민감도 학습용 로지스틱 회귀)
+                                visit(거리 민감도 학습용 로지스틱 회귀), bpr(순위 학습)
   candidates.py                 후보 생성, 인기도 blend
   geo.py                        haversine, 사용자 기준점
   roads.py                      OpenStreetMap 보행 도로망, Dijkstra 도보 거리와 경로
@@ -69,7 +69,7 @@ notebooks/                    탐색용 노트북 (선택)
 docs/                         제안서, 코드 구현 계획, 구현 가이드, 발표 개요
 ```
 
-모든 모델은 같은 인터페이스를 가진다: `fit(train)`, `predict(u, i)`, `score_all(u)`.
+별점 모델은 같은 인터페이스를 가진다: `fit(train)`, `predict(u, i)`, `score_all(u)`. 순위 모델 BPR은 별점을 예측하지 않으므로 `fit`과 `score_all`만 있다.
 
 ## 실행
 
@@ -100,7 +100,7 @@ streamlit run app/dashboard.py
 
 대시보드 화면 구성과 동작은 [docs/Dashboard.md](docs/Dashboard.md)에 정리했다. Yelp 데이터를 읽기 때문에 `localhost`에서만 열리고, 공개 서버에 배포하지 않는다.
 
-실험을 하나씩 돌리려면 `python experiments/<이름>.py` (baseline, mf, item_knn, cbf_hybrid, compare_models, ranking, route, popularity, learned_distance, figures).
+실험을 하나씩 돌리려면 `python experiments/<이름>.py` (baseline, mf, item_knn, cbf_hybrid, compare_models, ranking, route, popularity, learned_distance, bpr, figures).
 
 ## 결과 요약
 
@@ -129,6 +129,8 @@ streamlit run app/dashboard.py
 
 **거리 민감도 학습** (`results/learned_distance.json`, [설명](docs/ML_Learned_Distance.md)): 고정 규칙 `e^(-d/2km)` 대신 로지스틱 회귀(직접 구현한 경사하강법 + L2)로 거리, 개인 이동 반경, 예상 별점, 인기도의 가중치를 학습했다. 기존 설정보다 NDCG@10이 유의하게 높고(0.0340 → 0.0365, p = 0.003), 검증으로 튜닝한 고정 규칙과는 유의한 차이를 찾지 못했고(p = 0.36), 커버리지는 더 넓었다(1.01% → 1.26%, 점 추정값). 개인 이동 반경을 빼면 유의하게 나빠진다. 1km 지점에서 1km 더 멀어지는 손해는 인기도 1.56배로 상쇄된다.
 
+**순위 학습 BPR** (`results/bpr.json`, [설명](docs/BPR.md)): 별점 대신 "어디에 갔는가"의 순위를 쌍 비교 손실로 직접 학습했다. 전체로는 인기순보다 낫다는 증거가 없고(NDCG@10 0.0326 vs 0.0323, p = 0.61), 활동량별로는 21개 이상 집단에서만 유의하게 앞섰다(0.0419 vs 0.0381, p = 0.03, 세 집단 보정 전; 6~20개 집단도 평균은 높지만 p = 0.13). 학습 목표를 순위로 바꿔도 이 데이터의 개인화 신호는 약하다.
+
 ## 참고 문헌과 코드 출처
 
 괄호 안의 코드 경로는 `src/tasteroute/` 기준이다 (예: `models/mf.py` = `src/tasteroute/models/mf.py`).
@@ -154,6 +156,7 @@ streamlit run app/dashboard.py
 - [구현 가이드](docs/TasteRoute_Build_Guide.md)
 - [실제 도보 길찾기](docs/Walking_Route.md)
 - [거리 민감도 학습 (로지스틱 회귀)](docs/ML_Learned_Distance.md)
+- [순위 학습 BPR](docs/BPR.md)
 - [대시보드](docs/Dashboard.md)
 - [발표 개요](docs/TasteRoute_Slides_Outline.md)
 - [데이터 분석과 전처리](data_analysis_preprocessing/README.md)

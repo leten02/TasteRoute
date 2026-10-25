@@ -6,7 +6,7 @@ Needs data/processed/ from data_analysis_preprocessing/preprocess.py.
 import importlib
 import time
 
-STEPS = ["baseline", "mf", "item_knn", "cbf_hybrid", "compare_models", "ranking", "route", "popularity", "learned_distance", "figures"]
+STEPS = ["baseline", "mf", "item_knn", "cbf_hybrid", "compare_models", "ranking", "route", "popularity", "learned_distance", "bpr", "figures"]
 
 
 def main():
