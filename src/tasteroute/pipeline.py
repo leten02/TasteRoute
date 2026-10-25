@@ -59,7 +59,7 @@ def plan_day(pred, filt, items, start, user=None, n=6, mask=None, gamma=GAMMA, t
     pts_lat, pts_lon = np.r_[start[0], lat[chosen]], np.r_[start[1], lon[chosen]]
     straight = distance_matrix(pts_lat, pts_lon)
     routes = None
-    if roads is not None:
+    if roads is not None and len(chosen) > 0:  # nothing to route: no street download
         net = RoadNetwork.around(pts_lat, pts_lon) if isinstance(roads, str) else roads
         routes = net.routes(pts_lat, pts_lon)
     D = straight if routes is None else routes.D

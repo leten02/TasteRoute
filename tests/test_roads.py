@@ -87,3 +87,14 @@ def test_plan_day_routes_on_streets():
 
     flat = plan_day(np.full(3, 4.0), filt, items, (lat[0], lon[0]), n=3)
     assert np.isclose(flat["route_km"], flat["straight_km"]) and len(flat["path"]) == 4
+
+
+def test_plan_day_with_no_places_does_not_touch_roads():
+    def boom(lats, lons):
+        raise AssertionError("street network requested for an empty plan")
+
+    items = pd.DataFrame({"i": range(2), "is_open": 1, "lat": [40.0, 40.01], "lon": [-75.0, -75.0]})
+    train = pd.DataFrame({"u": [0, 0], "i": [0, 1]})
+    filt = CandidateFilter(items, train, seen=train.iloc[:0], min_support=1)
+    plan = plan_day(np.full(2, 4.0), filt, items, (40.0, -75.0), n=2, mask=np.zeros(2, dtype=bool), roads=boom)
+    assert plan["places"] == []
