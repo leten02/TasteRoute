@@ -282,8 +282,8 @@ with st.sidebar:
                             help="끄면 장소 사이를 직선으로 잇고, 거리도 직선으로 재요.")
 
 # ---------------------------------------------------------------- tab 1: plan
-DAY_COLORS = ["#eb6834", "#2a78d6", "#1baf7a"]
-# number text on each day color: whichever of ink / white contrasts more (4.85, 4.42, 5.51 : 1)
+DAY_COLORS = ["#eb6834", "#2874d0", "#1baf7a"]
+# number text on each day color: whichever of ink / white contrasts more (4.85, 4.67, 5.51 : 1)
 DAY_TEXT = ["#1f2430", "#ffffff", "#1f2430"]
 
 
