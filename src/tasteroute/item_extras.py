@@ -147,6 +147,32 @@ def open_for(hours, day, minute, stay_minutes):
     return any(s <= start and end < e for s, e in spans)
 
 
+LATEST_START = 30 * 60  # a day's visits start before 06:00 the next morning
+
+
+def earliest_start(hours, day, minute, stay_minutes):
+    """First minute >= `minute` at which a whole `stay_minutes` visit fits in one opening.
+
+    `minute` counts from `day`'s midnight. Waits for the place to open when it
+    is closed on arrival, but only within the trip day: starts before 06:00 the
+    next morning (LATEST_START), never "come back tomorrow afternoon". Returns
+    None when no such time exists (the visit would find it closed), and
+    `minute` itself for places with no hours listed (unknown counts as open,
+    as in open_for).
+
+    The allowed start times are a fixed set for `day`, so arriving later never
+    gives an earlier start; route.held_karp_hours relies on this.
+    """
+    if not hours:
+        return minute
+    stay = max(stay_minutes - 1, 0)
+    for s, e in _open_intervals(hours, day, -1, 1):
+        t = max(minute, s)
+        if t + stay < e and t < LATEST_START:
+            return t
+    return None
+
+
 def open_mask(extras, n_items, day, minute, stay_minutes=0, window_minutes=0, step=15):
     """Boolean array over item ids: places that can be visited on `day`.
 

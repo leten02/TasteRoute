@@ -1,4 +1,4 @@
-from tasteroute.item_extras import attribute_features, is_open_at, parse_hours
+from tasteroute.item_extras import attribute_features, earliest_start, is_open_at, open_for, parse_hours
 
 
 def test_attribute_features_parse_yelp_strings():
@@ -100,3 +100,15 @@ def test_hours_day_at_uses_previous_day_after_midnight():
     assert hours_day_at(h, "Monday", 1500) == "Monday"  # Mon 25:00 = Tue 01:00, still Monday's
     assert hours_day_at(h, "Tuesday", 1200) == "Tuesday"  # Tue 20:00
     assert hours_day_at(h, "Wednesday", 600) == "Wednesday"  # no opening covers it
+
+def test_earliest_start_waits_for_opening_and_agrees_with_open_for():
+    h = parse_hours({"Monday": "11:0-14:0", "Tuesday": "17:0-2:0"})
+    assert earliest_start(h, "Monday", 600, 30) == 660            # wait 10:00 -> 11:00
+    assert earliest_start(h, "Monday", 700, 30) == 700            # open on arrival
+    assert earliest_start(h, "Monday", 825, 30) is None           # 13:45 + 30 min runs past 14:00
+    assert earliest_start(h, "Tuesday", 25 * 60, 30) == 25 * 60   # Wed 01:00 inside Tue 17:00-02:00
+    assert earliest_start(h, "Monday", 900, 30) is None            # not "wait for Tuesday 17:00"
+    assert earliest_start({}, "Monday", 600, 30) == 600            # unknown hours count as open
+    for t in range(0, 30 * 60, 7):  # within the trip day, waiting aside, it agrees with open_for
+        e = earliest_start(h, "Monday", t, 25)
+        assert (e == t) == open_for(h, "Monday", t, 25)
