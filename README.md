@@ -164,6 +164,7 @@ streamlit run app/dashboard.py
 - [가게 속성으로 cold start 다시 보기 (RQ2)](docs/Cold_Start.md)
 - [실제 도보 거리로 RQ1·RQ3 다시 재기](docs/Walking_Eval.md)
 - [대시보드](docs/Dashboard.md)
+- [코드 읽기 안내 (구조, 수식, 읽는 순서, 발표 예상 질문)](docs/Code_Walkthrough.md)
 - [발표 개요](docs/TasteRoute_Slides_Outline.md)
 - [데이터 분석과 전처리](data_analysis_preprocessing/README.md)
 
