@@ -63,6 +63,13 @@
   /* mute the colourful OSM style so the orange route stands out */
   .leaflet-tile-pane { filter: grayscale(.75) brightness(1.06) contrast(.92); }
   .empty { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 14px; }
+  .dayhead { display: flex; align-items: center; gap: 8px; margin: 6px 0 10px; font-size: 13px; font-weight: 700; }
+  .dayhead .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dayhead span.sub { font-weight: 500; color: var(--muted); }
+  .time { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; color: var(--ink); font-weight: 500; }
+  .st-open { background: #e3f6ee; color: #12795a; }
+  .st-closed { background: #fde8e8; color: #b42318; }
+  .st-unknown { background: var(--bg); color: var(--muted); }
 </style>
 </head>
 <body>
@@ -77,7 +84,7 @@
   <section class="mapbox">
     <div id="map"></div>
     <div class="legend">
-      <div class="legend-row"><span class="sw"></span>최적 경로</div>
+      <div id="legend-days"></div>
       <label><span class="sw rec"></span><input type="checkbox" id="t-rec"> 추천 순서대로</label>
     </div>
   </section>
@@ -91,24 +98,38 @@ document.getElementById("title").textContent = DATA.title;
 document.getElementById("subtitle").textContent = DATA.subtitle;
 const list = document.getElementById("list");
 
-const emptyNote = DATA.stops.length ? "" :
-  '<div class="empty">조건에 맞는 장소가 없어요.<br>카테고리나 출발지를 바꿔 보세요.</div>';
+const nStops = DATA.days.reduce((a, d) => a + d.stops.length, 0);
+const emptyNote = nStops ? "" :
+  '<div class="empty">조건에 맞는 장소가 없어요.<br>카테고리, 출발지, 시간을 바꿔 보세요.</div>';
+const statusText = { open: "도착 시 영업 중", closed: "도착 시 닫힘", unknown: "영업시간 정보 없음" };
 
-// itinerary: start, then (leg, stop) pairs
-let html = `<div class="stop"><div class="rail"><div class="badge start">⌂</div>${DATA.stops.length ? '<div class="line"></div>' : ''}</div>
-  <div><div class="card start-card"><div class="name">${esc(DATA.start.name)}</div>
-  <div class="meta">출발</div></div></div></div>`;
-DATA.stops.forEach((s, k) => {
-  const last = k === DATA.stops.length - 1;
-  html += `<div class="stop"><div class="rail"></div><div class="leg">🚶 <b>${fmtKm(s.leg_km)}</b> · ${s.leg_min}분 ${DATA.walking ? "도보" : "(직선)"}</div></div>
-  <div class="stop"><div class="rail"><div class="badge">${k + 1}</div>${last ? "" : '<div class="line"></div>'}</div>
-  <div><div class="card" data-k="${k}">
-    <div class="name">${esc(s.name)}</div>
-    <div class="meta"><span><span class="star">★</span> ${s.stars.toFixed(1)}</span><span>리뷰 ${s.reviews.toLocaleString()}</span>
-      <span class="chip">예상 ★${s.pred.toFixed(2)}</span><span class="chip">추천 ${s.rank}위</span></div>
-    <div class="meta">${s.tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>
-    <div class="why">${esc(s.why)}</div>
-  </div></div></div>`;
+// itinerary: per day a header, the start, then (leg, stop) pairs
+let html = "";
+let flat = [];
+DATA.days.forEach((day, d) => {
+  if (DATA.days.length > 1 || day.label) {
+    html += `<div class="dayhead"><span class="dot" style="background:${day.color}"></span>${esc(day.label)}
+      <span class="sub">· ${day.stops.length}곳 · ${day.km.toFixed(1)}km · ${day.end} 끝</span></div>`;
+  }
+  html += `<div class="stop"><div class="rail"><div class="badge start">⌂</div>${day.stops.length ? '<div class="line"></div>' : ''}</div>
+    <div><div class="card start-card"><div class="name">${esc(DATA.start.name)}</div>
+    <div class="meta">출발</div></div></div></div>`;
+  day.stops.forEach((s, k) => {
+    const g = flat.length;
+    flat.push({ ...s, day: d, k });
+    const last = k === day.stops.length - 1;
+    html += `<div class="stop"><div class="rail"></div><div class="leg">🚶 <b>${fmtKm(s.leg_km)}</b> · ${s.leg_min}분 ${DATA.walking ? "도보" : "(직선)"}</div></div>
+    <div class="stop"><div class="rail"><div class="badge" style="background:${day.color}">${k + 1}</div>${last ? "" : '<div class="line"></div>'}</div>
+    <div><div class="card" data-k="${g}">
+      <div class="name">${esc(s.name)}</div>
+      <div class="meta"><span class="time">도착 ${s.arrive}</span>
+        <span class="chip st-${s.status}">${statusText[s.status]}</span>${s.hours ? `<span>영업 ${esc(s.hours)}</span>` : ""}</div>
+      <div class="meta"><span><span class="star">★</span> ${s.stars.toFixed(1)}</span><span>리뷰 ${s.reviews.toLocaleString()}</span>
+        <span class="chip">예상 ★${s.pred.toFixed(2)}</span><span class="chip">추천 ${s.rank}위</span></div>
+      <div class="meta">${s.tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>
+      <div class="why">${esc(s.why)}</div>
+    </div></div></div>`;
+  });
 });
 list.innerHTML = html + emptyNote;
 
@@ -120,36 +141,41 @@ L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 }).addTo(map);
 map.fitBounds([[DATA.bounds[0][1], DATA.bounds[0][0]], [DATA.bounds[1][1], DATA.bounds[1][0]]],
-  { paddingTopLeft: [50, 80], paddingBottomRight: [50, 50] });
+  { paddingTopLeft: [50, 90], paddingBottomRight: [50, 50] });
 
-const recLine = L.polyline(DATA.rec_path, { color: "#9aa4b2", weight: 2.5, dashArray: "6 6" });
-L.polyline(DATA.path, { color: "#ffffff", weight: 9, opacity: 1, lineJoin: "round", lineCap: "round" }).addTo(map);
-L.polyline(DATA.path, { color: "#eb6834", weight: 5, opacity: 0.95, lineJoin: "round", lineCap: "round" }).addTo(map);
+const recLines = DATA.days.map(day => L.polyline(day.rec_path, { color: "#9aa4b2", weight: 2.5, dashArray: "6 6" }));
+DATA.days.forEach(day => {
+  L.polyline(day.path, { color: "#ffffff", weight: 9, opacity: 1, lineJoin: "round", lineCap: "round" }).addTo(map);
+  L.polyline(day.path, { color: day.color, weight: 5, opacity: 0.95, lineJoin: "round", lineCap: "round" }).addTo(map);
+});
+document.getElementById("legend-days").innerHTML = DATA.days.map(day =>
+  `<label><span class="sw" style="border-top-color:${day.color}"></span>${esc(DATA.days.length > 1 ? day.label : "최적 경로")}</label>`).join("");
 document.getElementById("t-rec").addEventListener("change", e => {
-  if (e.target.checked) recLine.addTo(map).bringToBack(); else recLine.remove();
+  recLines.forEach(l => { if (e.target.checked) l.addTo(map).bringToBack(); else l.remove(); });
 });
 
-const icon = (text, cls, size, dx = 0) => L.divIcon({ className: "", iconSize: [size, size],
-  iconAnchor: [size / 2 - dx, size / 2], popupAnchor: [dx, -size / 2], html: `<div class="marker ${cls}">${text}</div>` });
+const icon = (text, cls, size, color, dx = 0) => L.divIcon({ className: "", iconSize: [size, size],
+  iconAnchor: [size / 2 - dx, size / 2], popupAnchor: [dx, -size / 2],
+  html: `<div class="marker ${cls}"${color ? ` style="background:${color}"` : ""}>${text}</div>` });
 // places in the same building (e.g. stalls inside Reading Terminal Market) would hide
 // each other's pins: shift each later pin sideways by its number of near-duplicates
 const near = (a, b) => Math.hypot(a.lat - b.lat, (a.lon - b.lon) * 0.77) < 0.0003;  // about 30 m
-const shift = DATA.stops.map((s, k) => DATA.stops.slice(0, k).filter(t => near(s, t)).length * 22);
+const shift = flat.map((s, g) => flat.slice(0, g).filter(t => near(s, t)).length * 22);
 L.marker([DATA.start.lat, DATA.start.lon], { icon: icon("⌂", "start", 34), zIndexOffset: 500 })
   .bindPopup(`<b>${esc(DATA.start.name)}</b><br><span style="color:#6b7280">출발</span>`).addTo(map);
 
-const markers = DATA.stops.map((s, k) => {
-  const m = L.marker([s.lat, s.lon], { icon: icon(k + 1, "", 30, shift[k]), riseOnHover: true })
-    .bindPopup(`<b>${k + 1}. ${esc(s.name)}</b><br><span style="color:#6b7280">★ ${s.stars.toFixed(1)} · 예상 ★${s.pred.toFixed(2)} · 리뷰 ${s.reviews.toLocaleString()}</span>`)
+const markers = flat.map((s, g) => {
+  const m = L.marker([s.lat, s.lon], { icon: icon(s.k + 1, "", 30, DATA.days[s.day].color, shift[g]), riseOnHover: true })
+    .bindPopup(`<b>${s.k + 1}. ${esc(s.name)}</b><br><span style="color:#6b7280">도착 ${s.arrive} · ★ ${s.stars.toFixed(1)} · 예상 ★${s.pred.toFixed(2)}</span>`)
     .addTo(map);
-  m.on("click", () => select(k, false));
+  m.on("click", () => select(g, false));
   return m;
 });
 
 function select(k, fly = true) {
   document.querySelectorAll(".card[data-k]").forEach(c => c.classList.toggle("active", +c.dataset.k === k));
   markers.forEach((m, j) => { const el = m.getElement() && m.getElement().firstChild; if (el) el.classList.toggle("active", j === k); });
-  const s = DATA.stops[k];
+  const s = flat[k];
   if (fly) {
     map.flyTo([s.lat, s.lon], Math.max(map.getZoom(), 16), { duration: 0.8 });
     markers[k].openPopup();

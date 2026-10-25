@@ -92,17 +92,57 @@ def parse_hours(hours):
 def is_open_at(hours, day, minute):
     """True if a place with parsed hours is open on `day` at `minute` after midnight.
 
-    Also counts the previous day's opening that runs past midnight. Places with
-    no hours listed are treated as open (unknown, not closed).
+    `minute` may run past midnight (e.g. 1500 = 01:00 the next day): whole days
+    roll over to the following weekday first. Also counts the previous day's
+    opening that runs past midnight. Places with no hours listed are treated as
+    open (unknown, not closed).
     """
     if not hours:
         return True
-    k = DAYS.index(day)
+    roll, minute = divmod(int(minute), 24 * 60)
+    k = (DAYS.index(day) + roll) % 7
+    day = DAYS[k]
     start, end = hours.get(day, (None, None))
     if start is not None and start <= minute < end:
         return True
     prev = hours.get(DAYS[k - 1])
     return prev is not None and minute + 24 * 60 < prev[1]
+
+
+def open_for(hours, day, minute, stay_minutes):
+    """True if open from `minute` through the last minute of a `stay_minutes` visit.
+
+    The stay ends at minute + stay - 1, so a visit that ends exactly at closing
+    time (arrive 19:35, 25 minutes, closes 20:00) counts as open.
+    """
+    return is_open_at(hours, day, minute) and is_open_at(hours, day, minute + max(stay_minutes - 1, 0))
+
+
+def open_mask(extras, n_items, day, minute, stay_minutes=0, window_minutes=0, step=15):
+    """Boolean array over item ids: places that can be visited on `day`.
+
+    A place passes if some arrival time in [minute, minute + window_minutes]
+    (checked every `step` minutes) leaves it open for the whole stay; with
+    window_minutes = 0 it must be open on arrival at `minute`. Places without
+    listed hours count as open (unknown, not closed); items missing from
+    extras count as open too.
+    """
+    mask = np.ones(n_items, dtype=bool)
+    arrivals = range(int(minute), int(minute + window_minutes) + 1, step)
+    for i, hours in zip(extras.index.values, extras.hours.values):
+        if isinstance(hours, dict) and hours:
+            mask[i] = any(open_for(hours, day, t, stay_minutes) for t in arrivals)
+    return mask
+
+
+def hours_today(hours, day):
+    """'11:00-21:00' style text for one day, or None when not listed."""
+    if not isinstance(hours, dict) or day not in hours:
+        return None
+    a, b = hours[day]
+    if b - a >= 24 * 60:
+        return "24시간"
+    return f"{a // 60:02d}:{a % 60:02d}-{(b // 60) % 24:02d}:{b % 60:02d}"
 
 
 def build(items, raw=RAW):

@@ -59,7 +59,8 @@ src/tasteroute/               패키지
   roads.py                      OpenStreetMap 보행 도로망, Dijkstra 도보 거리와 경로
   rerank.py                     거리 감쇠 재순위화
   route.py                      완전탐색, Held-Karp, NN, 2-opt
-  pipeline.py                   한 사람의 하루 일정 (추천 → 재순위화 → 경로)
+  pipeline.py                   한 사람의 하루·여러 날 일정 (추천 → 재순위화 → MMR → 경로)
+  cluster.py                    k-means, 용량 제한 k-means (여러 날 코스)
 experiments/                  실험 스크립트 (결과는 results/, 그림은 figures/)
 results/                      실험 결과 JSON
 figures/                      모델·랭킹·동선 그림
@@ -99,7 +100,7 @@ python -m tasteroute.roads              # (선택) 도심 보행 도로망을 �
 streamlit run app/dashboard.py
 ```
 
-대시보드 화면 구성과 동작은 [docs/Dashboard.md](docs/Dashboard.md)에 정리했다. Yelp 데이터를 읽기 때문에 `localhost`에서만 열리고, 공개 서버에 배포하지 않는다.
+대시보드 화면 구성과 동작은 [docs/Dashboard.md](docs/Dashboard.md)에 정리했다. 영업시간 반영(도착 시각과 영업 상태), 여러 날 코스(용량 제한 k-means로 동네 나누기), 다양성 조절(MMR), BPR 순위 방식을 지원한다. Yelp 데이터를 읽기 때문에 `localhost`에서만 열리고, 공개 서버에 배포하지 않는다.
 
 실험을 하나씩 돌리려면 `python experiments/<이름>.py` (baseline, mf, item_knn, cbf_hybrid, compare_models, ranking, route, popularity, learned_distance, bpr, cold_start, walking, figures). cold_start는 먼저 `python -m tasteroute.item_extras`, walking은 `python -m tasteroute.roads`가 필요하다.
 
