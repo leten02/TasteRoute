@@ -352,11 +352,45 @@ def c1_cold_shrink():
     save(fig, "C1_cold_start_shrink")
 
 
+def w1_detour():
+    """W1: how much longer walking is than the straight line (Center City)."""
+    d = load("walking")["detour"]
+    edges = np.arange(1.0, 2.05, 0.05)
+    fig, ax = plt.subplots(figsize=(8, 4.2))
+    ax.bar(edges[:-1], d["hist"], width=0.045, align="edge", color=BLUE)
+    ax.axvline(d["median"], color=INK, lw=1.2, ls="--")
+    ax.text(1.55, max(d["hist"]) * 0.8, f"dashed line: median {d['median']:.2f}x", color=INK, fontsize=10)
+    ax.set_xlabel("Walking distance / straight-line distance")
+    ax.set_ylabel("(anchor, place) pairs")
+    titled(fig, "Real walks are about 30% longer than straight lines",
+           f"{d['pairs']:,} pairs over 300 m, Center City walking network (OpenStreetMap) · 10-90%: "
+           f"{d['p10']:.2f}-{d['p90']:.2f}x")
+    save(fig, "W1_walking_detour")
+
+
+def w2_route_on_streets():
+    """W2: extra walking when the route order is optimized on straight lines (RQ3)."""
+    q = load("walking")["rq3"]
+    labels = ["0%\n(same order)", "0-2%", "2-5%", "5-10%", "10-20%", "20%+"]
+    share = np.array(q["extra_hist"]) / q["users"] * 100
+    fig, ax = plt.subplots(figsize=(8, 4.2))
+    ax.bar(labels, share, color=[AQUA] + [ORANGE] * 5, width=0.6)
+    for k, v in enumerate(share):
+        ax.text(k, v + 1, f"{v:.1f}%", ha="center", fontsize=10, color=INK)
+    ax.set_ylabel("Users (%)")
+    ax.set_xlabel("Extra walking of the straight-line-optimal order vs the walking-optimal order")
+    ax.set_ylim(0, max(share) * 1.15)
+    titled(fig, "Straight-line routing is almost free on real streets (RQ3)",
+           f"{q['users']:,} Center City test users, 6 places · mean extra {q['extra_mean']:.1%}, "
+           f"worst {q['extra_max']:.1%}")
+    save(fig, "W2_route_on_streets")
+
+
 def main():
     """Run this step and write its output (see the module docstring)."""
     for f in (v1_rmse, v5_cold, m1_knn, m3_mf_curve, m4_mf_grid, m5_blend, r2_pareto, t2_timing, t3_gap,
               d1_popularity, l1_learned, l2_distance_curve, b1_bpr_activity,
-              c1_cold_shrink):
+              c1_cold_shrink, w1_detour, w2_route_on_streets):
         f()
 
 

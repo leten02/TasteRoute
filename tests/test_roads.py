@@ -130,3 +130,12 @@ def test_cache_reads_same_box_legacy_file_and_skips_damaged(tmp_path):
     (tmp_path / "walk_broken.npz").write_bytes(b"not a zip file")
     got = RoadNetwork.download(*box, cache_dir=tmp_path, tries=0)
     assert len(got.lat) == len(net.lat)
+
+
+def test_distances_from_matches_routes_and_contains():
+    net, lat, lon = _grid(n=4)
+    r = net.routes(lat[[0, 5, 15]], lon[[0, 5, 15]])
+    d = net.distances_from(lat[0], lon[0], lat[[5, 15]], lon[[5, 15]])
+    assert np.allclose(d, r.D[0, 1:])
+    inside = net.contains(np.array([lat[5], 41.0]), np.array([lon[5], lon[5]]), margin_km=0.0)
+    assert list(inside) == [True, False]
