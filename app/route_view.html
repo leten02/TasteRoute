@@ -99,7 +99,7 @@
     <div id="map"></div>
     <div class="legend">
       <div id="legend-days"></div>
-      <label><span class="sw rec"></span><input type="checkbox" id="t-rec"> 추천 순서대로</label>
+      <label><span class="sw rec"></span><input type="checkbox" id="t-rec"> 추천 순서대로 갈 때</label>
     </div>
   </section>
 </div>
@@ -115,7 +115,7 @@ const list = document.getElementById("list");
 const nStops = DATA.days.reduce((a, d) => a + d.stops.length, 0);
 const emptyNote = nStops ? "" :
   '<div class="empty">조건에 맞는 장소가 없어요.<br>카테고리, 출발지, 시간을 바꿔 보세요.</div>';
-const statusText = { open: "도착 시 영업 중", closed: "도착 시 닫힘", unknown: "영업시간 정보 없음" };
+const statusText = { open: "도착 시 영업 중", closed: "도착 시 문 닫음", unknown: "영업시간 정보 없음" };
 
 // itinerary: per day a header, the start, then (leg, stop) pairs
 let html = "";
@@ -123,7 +123,7 @@ let flat = [];
 DATA.days.forEach((day, d) => {
   if (DATA.days.length > 1 || day.label) {
     html += `<div class="dayhead"><span class="dot" style="background:${day.color}"></span>${esc(day.label)}
-      <span class="sub">· ${day.stops.length}곳 · ${day.km.toFixed(1)}km · ${day.end} 끝</span></div>`;
+      <span class="sub">· ${day.stops.length}곳 · ${day.km.toFixed(1)}km · ${day.end} 종료</span></div>`;
   }
   html += `<div class="stop"><div class="rail"><div class="badge start">⌂</div>${day.stops.length ? '<div class="line"></div>' : ''}</div>
     <div><div class="card start-card"><div class="name">${esc(DATA.start.name)}</div>
@@ -132,7 +132,7 @@ DATA.days.forEach((day, d) => {
     const g = flat.length;
     flat.push({ ...s, day: d, k });
     const last = k === day.stops.length - 1;
-    html += `<div class="stop"><div class="rail"></div><div class="leg">🚶 <b>${fmtKm(s.leg_km)}</b> · ${s.leg_min}분 ${DATA.walking ? "도보" : "(직선)"}</div></div>
+    html += `<div class="stop"><div class="rail"></div><div class="leg">🚶 <b>${fmtKm(s.leg_km)}</b> · ${DATA.walking ? `걸어서 ${s.leg_min}분` : `${s.leg_min}분 (직선 기준)`}</div></div>
     <div class="stop"><div class="rail"><div class="badge" style="background:${day.color}">${k + 1}</div>${last ? "" : '<div class="line"></div>'}</div>
     <div><div class="card" data-k="${g}">
       <div class="card-top"><div class="name">${esc(s.name)}</div><span class="time" title="도착 예정 시각">${s.arrive}</span></div>
