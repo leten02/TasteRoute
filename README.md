@@ -122,7 +122,7 @@ streamlit run app/dashboard.py
 
 **RQ1 거리 재순위화** (test 사용자 3,000명, `results/ranking.json`): 지수 감쇠 τ = 2km에서 Hybrid 목록의 평균 거리 6.3km → 2.1km, NDCG@10 0.0009 → 0.0062. 거리를 넣으면 정확도가 떨어지는 대신 오히려 오른다. 사용자가 실제로 가까운 곳을 다니기 때문이다.
 
-**RQ2 cold start** (`results/model_compare.json`, `results/cold_start.json`, [설명](docs/Cold_Start.md)): 학습 평점 1/3/5개 사용자에서 CBF·Hybrid는 bias와 0.002 이내. Yelp 가게 속성 42개를 더하고 평점 하나로도 일반화하는 내용 기반 이웃 모델을 써도 같았다. validation은 매번 내용 정보를 최대한 끄는 설정을 골랐다 (bias 대비 p ≥ 0.19). 답: 이 데이터에서 내용 정보는 신규 사용자의 별점을 설명하지 못한다.
+**RQ2 cold start** (`results/model_compare.json`, `results/cold_start.json`, [설명](docs/Cold_Start.md)): 학습 평점 1/3/5개 사용자에서 CBF·Hybrid는 bias와 0.002 이내. Yelp 가게 속성 42개를 더하고 평점 하나로도 일반화하는 내용 기반 이웃 모델을 써도 같았다. 속성을 쓴 두 모델에서 validation은 내용 정보를 최대한 끄는 설정을 골랐다 (모든 모델이 bias 대비 p ≥ 0.19). 답: 이 데이터에서 내용 정보는 신규 사용자의 별점을 설명하지 못한다.
 
 **RQ3 동선** (N = 6, `results/route.json`): 추천 순서대로 돌면 최적 경로보다 중앙값 26% 길다. NN + 2-opt는 82%의 사용자에서 정확한 최적해(평균 차이 0.9%). Held-Karp는 N = 8에서 약 1ms.
 
