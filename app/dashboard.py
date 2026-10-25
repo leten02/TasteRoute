@@ -67,6 +67,12 @@ st.markdown(f"""
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap');
   html, body, [class*="css"], .stMarkdown, .stText {{ font-family: Inter, -apple-system, "Apple SD Gothic Neo", sans-serif; }}
   #MainMenu, footer {{ visibility: hidden; }}
+  /* light scrollbars: a pale thumb that darkens a little on hover (Chrome/Safari and Firefox) */
+  * {{ scrollbar-width: thin; scrollbar-color: #dcdfe4 transparent; }}
+  ::-webkit-scrollbar {{ width: 8px; height: 8px; }}
+  ::-webkit-scrollbar-track {{ background: transparent; }}
+  ::-webkit-scrollbar-thumb {{ background: #dcdfe4; border-radius: 8px; }}
+  ::-webkit-scrollbar-thumb:hover {{ background: #c4c9d2; }}
   header[data-testid="stHeader"] {{ background: transparent; height: 0; }}
   .block-container {{ padding-top: 2.4rem; padding-bottom: 2rem; max-width: 1480px; }}
   .tr-head {{ display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 14px; row-gap: 2px; margin-bottom: 4px; }}
@@ -104,12 +110,15 @@ st.markdown(f"""
   table.tr td {{ text-align: right; padding: 8px 10px; border-bottom: 1px solid #f0f1f3; font-variant-numeric: tabular-nums; }}
   table.tr td.best {{ font-weight: 700; background: {ACCENT_TINT}; color: #b8471c; }}
   section[data-testid="stSidebar"] [data-testid="stExpander"] summary {{ font-weight: 600; }}
-  /* the sidebar header only holds the collapse button (no logo): drop the empty logo slot and
-     shrink the band so the panel title starts right below the button (the button moves between
-     left and right with the screen width, so the title is not placed beside it) */
-  [data-testid="stSidebarHeader"] {{ height: 40px; padding-top: 4px; }}
+  /* the sidebar header only holds the collapse button (no logo): take it out of the flow and pin
+     the button to the right end of the "코스 설정" title row, so it reads as the panel's close
+     control instead of floating alone above the title */
+  [data-testid="stSidebarHeader"] {{ position: absolute; top: 18px; right: 14px; left: auto; width: auto;
+                                     height: auto; padding: 0; z-index: 2; }}
   [data-testid="stLogoSpacer"] {{ display: none; }}
-  .side-title {{ margin-top: -8px; }}
+  [data-testid="stSidebarUserContent"] {{ padding-top: 22px; }}
+  .side-title {{ margin-top: 0; }}
+  .side-title b {{ padding-right: 44px; }}
   .side-title b {{ display: block; font-size: 17px; font-weight: 700; color: {INK}; line-height: 28px; }}
   .side-title span {{ display: block; font-size: 12.5px; color: {MUTED}; margin-top: 2px; }}
 </style>

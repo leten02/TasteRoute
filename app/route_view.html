@@ -14,7 +14,11 @@
     --surface: #ffffff; --bg: #f6f7f9; --rec: #9aa4b2;
     --radius: 12px; --shadow: 0 1px 2px rgba(16,24,40,.06), 0 4px 12px rgba(16,24,40,.06);
   }
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: #dcdfe4 transparent; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #dcdfe4; border-radius: 8px; }
+  ::-webkit-scrollbar-thumb:hover { background: #c4c9d2; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
     font-family: Inter, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
   .wrap { display: grid; grid-template-columns: 380px 1fr; gap: 16px; height: 100%; }
