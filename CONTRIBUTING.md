@@ -6,15 +6,17 @@
 
 | 브랜치 | 용도 | 어디서 만들고 | 어디로 머지 |
 | --- | --- | --- | --- |
-| `main` | 제출·발표용 안정 버전 (기본 브랜치) | - | - |
-| `develop` | 개발 통합 | `main` | `main` (release로) |
+| `main` | 제출·발표용 안정 버전 | - | - |
+| `develop` | 개발 통합 (기본 브랜치) | `main` | `main` (release로) |
 | `feature/<이슈번호>-<설명>` | 기능, 실험, 문서 | `develop` | `develop` |
 | `release/<버전>` | 제출 전 마무리 (숫자 확인, 문서 정리) | `develop` | `main`, `develop` |
 | `hotfix/<설명>` | `main`의 긴급 수정 | `main` | `main`, `develop` |
 
 예: `feature/31-temporal-split`, `release/1.0`
 
-기본 브랜치는 `main`이라서 **feature PR은 base를 `develop`으로 직접 골라야 한다** (release, hotfix PR은 `main`). `develop`에 머지된 PR의 `Closes #n` 이슈는 워크플로(`close-issues.yml`)가 대신 닫는다.
+기본 브랜치는 `develop`이다. feature PR은 기본값 그대로 `develop`을 향하고, 본문의 `Closes #n`으로 이슈와 연결되어 머지 때 이슈가 자동으로 닫힌다. release, hotfix PR만 base를 `main`으로 고른다.
+
+GitHub는 PR이 기본 브랜치를 향할 때만 `Closes #n`을 연결한다. 그래서 앞 PR 위에 쌓은 PR(base가 다른 feature 브랜치)은 앞 PR이 머지되어 base가 `develop`으로 바뀐 뒤에 연결된다. 그 전에는 이슈 본문의 "구현 PR" 항목으로 짝을 확인한다.
 
 ## 작업 순서
 
