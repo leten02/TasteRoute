@@ -328,10 +328,35 @@ def b1_bpr_activity():
     save(fig, "B1_bpr_by_activity")
 
 
+def c1_cold_shrink():
+    """C1: cold-user validation RMSE of content neighbors as content is shrunk away (RQ2)."""
+    d = load("cold_start")
+    rows = d["selection"]["ContentKNN"]
+    bias = min(g["val"] for g in d["selection"]["Bias"])
+    fig, ax = plt.subplots(figsize=(8, 4.2))
+    for w, color in zip(sorted({r["w"] for r in rows}), [BLUE, ORANGE, AQUA, VIOLET]):
+        pts = sorted((r["shrink"], r["val"]) for r in rows if r["w"] == w)
+        ax.plot([p[0] for p in pts], [p[1] for p in pts], color=color, lw=2, marker="o", ms=4,
+                label=f"attribute weight w = {w:g}")
+    ax.axhline(bias, color=INK, lw=1.2, ls="--")
+    ax.text(15, bias + 0.0035, "dashed: bias only (no content)", va="bottom", fontsize=10, color=INK)
+    ax.set_xscale("log")
+    ax.set_xlim(0.4, 300)
+    ax.xaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}"))
+    ax.legend(frameon=False, fontsize=9, loc="upper right")
+    ax.set_xlabel("Shrink toward the bias baseline (log scale)  ->  less content")
+    ax.set_ylabel("RMSE, cold users' validation ratings")
+    titled(fig, "For new users, the less content the better (RQ2)",
+           "Content neighbors on categories + 42 Yelp attributes (attribute weight w) · 1,306 users with 1, 3 or 5 "
+           "ratings")
+    save(fig, "C1_cold_start_shrink")
+
+
 def main():
     """Run this step and write its output (see the module docstring)."""
     for f in (v1_rmse, v5_cold, m1_knn, m3_mf_curve, m4_mf_grid, m5_blend, r2_pareto, t2_timing, t3_gap,
-              d1_popularity, l1_learned, l2_distance_curve, b1_bpr_activity):
+              d1_popularity, l1_learned, l2_distance_curve, b1_bpr_activity,
+              c1_cold_shrink):
         f()
 
 
