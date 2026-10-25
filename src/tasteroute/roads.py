@@ -67,9 +67,8 @@ class RoadNetwork:
         box = tuple(round(x, 4) for x in (north, south, east, west))
         path = cache_dir / f"walk_{hashlib.md5(str(box).encode()).hexdigest()[:12]}.npz"
         # same box first (older cache files have no `box` entry), then any covering box
-        for cached in (path if path.exists() else None, cls._cached_covering(cache_dir, box)):
-            if cached is None:
-                continue
+        candidates = ([path] if path.exists() else []) + cls._cached_covering(cache_dir, box)
+        for cached in candidates:
             try:
                 with np.load(cached) as z:
                     return cls(z["lat"], z["lon"], z["u"], z["v"], z["length_km"])
@@ -109,9 +108,13 @@ class RoadNetwork:
 
     @staticmethod
     def _cached_covering(cache_dir, box):
-        """Smallest cached network file whose box contains `box`, or None."""
+        """Cached network files whose box contains `box`, smallest area first (empty list if none).
+
+        All covering files are returned so that, if the smallest one is damaged,
+        the caller can fall back to the next one.
+        """
         north, south, east, west = box
-        best = None
+        found = []
         for f in sorted(Path(cache_dir).glob("walk_*.npz")):
             if f.name.endswith(".tmp.npz"):
                 continue
@@ -123,10 +126,8 @@ class RoadNetwork:
             except (OSError, ValueError):  # damaged file: skip it instead of failing every lookup
                 continue
             if n >= north and s <= south and e >= east and w <= west:
-                area = (n - s) * (e - w)
-                if best is None or area < best[0]:
-                    best = (area, f)
-        return None if best is None else best[1]
+                found.append(((n - s) * (e - w), f))
+        return [f for _, f in sorted(found)]
 
     @classmethod
     def around(cls, lats, lons, margin_km=0.5, cache_dir=CACHE_DIR, **download_kw):
