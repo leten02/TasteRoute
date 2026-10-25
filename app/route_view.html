@@ -123,7 +123,7 @@ DATA.days.forEach((day, d) => {
     <div><div class="card" data-k="${g}">
       <div class="name">${esc(s.name)}</div>
       <div class="meta"><span class="time">도착 ${s.arrive}</span>
-        <span class="chip st-${s.status}">${statusText[s.status]}</span>${s.hours ? `<span>오늘 ${esc(s.hours)}</span>` : ""}</div>
+        <span class="chip st-${s.status}">${statusText[s.status]}</span>${s.hours ? `<span>영업 ${esc(s.hours)}</span>` : ""}</div>
       <div class="meta"><span><span class="star">★</span> ${s.stars.toFixed(1)}</span><span>리뷰 ${s.reviews.toLocaleString()}</span>
         <span class="chip">예상 ★${s.pred.toFixed(2)}</span><span class="chip">추천 ${s.rank}위</span></div>
       <div class="meta">${s.tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>

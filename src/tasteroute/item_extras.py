@@ -109,16 +109,29 @@ def is_open_at(hours, day, minute):
     return prev is not None and minute + 24 * 60 < prev[1]
 
 
-def open_mask(extras, n_items, day, minute, stay_minutes=0):
-    """Boolean array over item ids: open on `day` from `minute` for `stay_minutes`.
+def open_for(hours, day, minute, stay_minutes):
+    """True if open from `minute` through the last minute of a `stay_minutes` visit.
 
-    Places without listed hours count as open (unknown, not closed); items
-    missing from extras count as open too.
+    The stay ends at minute + stay - 1, so a visit that ends exactly at closing
+    time (arrive 19:35, 25 minutes, closes 20:00) counts as open.
+    """
+    return is_open_at(hours, day, minute) and is_open_at(hours, day, minute + max(stay_minutes - 1, 0))
+
+
+def open_mask(extras, n_items, day, minute, stay_minutes=0, window_minutes=0, step=15):
+    """Boolean array over item ids: places that can be visited on `day`.
+
+    A place passes if some arrival time in [minute, minute + window_minutes]
+    (checked every `step` minutes) leaves it open for the whole stay; with
+    window_minutes = 0 it must be open on arrival at `minute`. Places without
+    listed hours count as open (unknown, not closed); items missing from
+    extras count as open too.
     """
     mask = np.ones(n_items, dtype=bool)
+    arrivals = range(int(minute), int(minute + window_minutes) + 1, step)
     for i, hours in zip(extras.index.values, extras.hours.values):
         if isinstance(hours, dict) and hours:
-            mask[i] = is_open_at(hours, day, minute) and is_open_at(hours, day, minute + stay_minutes)
+            mask[i] = any(open_for(hours, day, t, stay_minutes) for t in arrivals)
     return mask
 
 

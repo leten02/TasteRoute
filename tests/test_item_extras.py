@@ -66,3 +66,16 @@ def test_stay_past_midnight_rolls_over_to_next_day():
     assert is_open_at(both, "Monday", 23 * 60 + 120)  # Monday 23:00 + 2 h = Tuesday 01:00
     assert not is_open_at(monday_only, "Monday", 23 * 60 + 120)
     assert is_open_at({"Sunday": (600, 1200)}, "Saturday", 24 * 60 + 700)  # rolls Saturday -> Sunday
+
+
+def test_stay_ending_at_closing_counts_and_window_search():
+    import pandas as pd
+
+    from tasteroute.item_extras import open_for, open_mask
+
+    h = {"Monday": (600, 1200)}  # 10:00-20:00
+    assert open_for(h, "Monday", 1175, 25)  # 19:35 + 25 min ends exactly at 20:00
+    assert not open_for(h, "Monday", 1176, 25)
+    extras = pd.DataFrame({"hours": [{"Monday": (840, 960)}]}, index=[0])  # 14:00-16:00
+    assert not open_mask(extras, 1, "Monday", 660, 30)[0]  # closed on arrival at 11:00
+    assert open_mask(extras, 1, "Monday", 660, 30, window_minutes=6 * 60)[0]  # visitable later that day

@@ -28,8 +28,8 @@ import streamlit.components.v1 as components
 from tasteroute.candidates import CandidateFilter
 from tasteroute.data import get_split, load_item_features, load_items, load_ratings, n_users_items
 from tasteroute.geo import haversine, user_anchors
-from tasteroute.item_extras import (DAYS, attribute_matrix, combine_features, hours_today, is_open_at,
-                                    load_item_extras, open_mask)
+from tasteroute.item_extras import (DAYS, attribute_matrix, combine_features, hours_today, load_item_extras,
+                                    open_for, open_mask)
 from tasteroute.models.bpr import BPR
 from tasteroute.models.cbf import CBF
 from tasteroute.models.visit import LogisticRegression, VisitFeatures
@@ -138,8 +138,12 @@ def load_engine():
 def run_plan(user, start, category, n, method, tau, walking, days=1, diversity=0.0, when=None, cache_only=False):
     """plan_days for these choices (cached per combination).
 
-    when: (first weekday, start minute) to keep only places open from the start
-        for two hours on every day of the trip; None ignores opening hours.
+    when: (first weekday, start minute, stay minutes) to keep only places that
+        can be visited during the day on every day of the trip: some arrival time
+        between the start and the end of a day (n stops x (stay + 15 min walk))
+        leaves the place open for the whole stay. None ignores opening hours.
+        Requiring every day is deliberately strict: k-means decides the day
+        later, so the place is open whichever day it lands on.
     cache_only: use only street networks already on disk (after a failed download).
     """
     eng = load_engine()
@@ -149,9 +153,10 @@ def run_plan(user, start, category, n, method, tau, walking, days=1, diversity=0
     if category:
         mask &= items.categories.str.contains(category, regex=False, na=False).values
     if when is not None and eng["extras"] is not None:
-        first, minute = when
+        first, minute, stay = when
+        window = n * (stay + 15)
         for d in range(days):
-            mask &= open_mask(eng["extras"], eng["n_items"], DAYS[(DAYS.index(first) + d) % 7], minute, 120)
+            mask &= open_mask(eng["extras"], eng["n_items"], DAYS[(DAYS.index(first) + d) % 7], minute, stay, window)
 
     def streets(lats, lons):
         # one quick try: a busy OpenStreetMap server should not freeze the app
@@ -219,7 +224,8 @@ with st.sidebar:
     start_time = c2.time_input("출발 시각", value=dt.time(11, 0), step=900)
     stay = st.slider("가게마다 머무는 시간 (분)", 10, 60, 25, 5)
     use_hours = st.toggle("영업 중인 곳만", value=has_hours, disabled=not has_hours,
-                          help="출발 후 2시간 동안 영업하는 곳만 골라요. 영업시간 정보가 없는 곳은 포함해요."
+                          help="그날 일정 시간(장소 수 × (머무는 시간 + 이동 15분)) 안에 머무는 내내 영업하는 때가 있는 "
+                          "곳만 골라요. 영업시간 정보가 없는 곳은 포함해요."
                           if has_hours else "python -m tasteroute.item_extras 를 먼저 실행하면 켤 수 있어요.")
 
     st.markdown("### 어떻게 고를까?")
@@ -248,12 +254,13 @@ with tab_plan:
     # after one failed street download, stay on straight lines until the user retries
     if walking and st.session_state.get("osm_failed"):
         c1, c2 = st.columns([5, 1])
-        c1.info("OpenStreetMap 서버가 응답하지 않아, 받아 둔 지역은 도보 경로로, 나머지는 직선 경로로 보여드려요.")
+        c1.info("OpenStreetMap 서버가 응답하지 않아요. 도로망을 받아 둔 지역의 코스는 도보 경로로, "
+                "아닌 코스는 직선 경로로 보여드려요.")
         if c2.button("도보 경로 다시 시도"):
             st.session_state.osm_failed = False
             st.rerun()
     start_min = start_time.hour * 60 + start_time.minute
-    when = (weekday, start_min) if use_hours else None
+    when = (weekday, start_min, stay) if use_hours else None
     args = (user, start, category, n, method, tau)
     try:
         with st.spinner("코스를 짜는 중... (새 지역의 도로망은 처음 한 번 받아요)"):
@@ -281,7 +288,7 @@ with tab_plan:
             status = "unknown"
             if isinstance(hours, dict) and hours:
                 # minutes past midnight roll over to the next weekday inside is_open_at
-                ok = is_open_at(hours, wd, arrive) and is_open_at(hours, wd, arrive + stay)
+                ok = open_for(hours, wd, arrive, stay)
                 status = "open" if ok else "closed"
                 closed += status == "closed"
             d0 = float(haversine(start[0], start[1], row.lat, row.lon))
@@ -291,7 +298,9 @@ with tab_plan:
                 "name": row["name"], "lat": float(row.lat), "lon": float(row.lon), "stars": float(row.stars),
                 "reviews": int(row.review_count), "pred": plan["stars"][i], "rank": rank_of[i], "tags": tags,
                 "leg_km": leg, "leg_min": int(round(leg / WALK_KMH * 60)), "arrive": hhmm(arrive),
-                "hours": hours_today(hours, wd) if hours else None, "status": status,
+                # hours of the weekday the visit actually falls on (after midnight: the next day)
+                "hours": hours_today(hours, DAYS[(DAYS.index(wd) + int(arrive // 1440)) % 7]) if hours else None,
+                "status": status,
                 "why": f"출발지에서 직선 {d0:.1f}km · 인기 상위 {max(top, 0.1):.1f}%",
             })
         view_days.append({"label": f"{d + 1}일차 · {DAYS_KO[wd]}요일" if len(plan["days"]) > 1 else f"{DAYS_KO[wd]}요일",
@@ -318,10 +327,11 @@ with tab_plan:
         <div class="note">Held-Karp 최적 순서 · {saved / max(rec_km, 1e-9) * 100:.0f}% 절약</div></div>
     </div>""", unsafe_allow_html=True)
 
+    n_days = len(plan["days"])  # can be fewer than asked for when few places qualify
     pts = [p for x in view_days for p in x["path"]] + [start]
     lats, lons = [p[0] for p in pts], [p[1] for p in pts]
     data = {
-        "title": f"{'오늘의' if days == 1 else f'{days}일'} {CATEGORY_KO[category]} 코스",
+        "title": f"{'오늘의' if n_days == 1 else f'{n_days}일'} {CATEGORY_KO[category]} 코스",
         "subtitle": f"{start_name}에서 {hhmm(start_min)} 출발 · 카드를 누르면 지도가 그곳으로 가요",
         "walking": walking, "start": {"name": start_name, "lat": start[0], "lon": start[1]}, "days": view_days,
         "bounds": [[min(lons), min(lats)], [max(lons), max(lats)]],
@@ -338,7 +348,7 @@ with tab_plan:
         }[method]
         st.markdown(f"""
 1. **예상 별점**: {"새 방문자라 전체 평균 + 장소 편향(μ + b_i)" if user is None else f"사용자 {user}의 취향(CBF: bias + 카테고리 취향)"}으로 모든 장소의 별점을 예측해요. 카드의 '예상 ★'이에요.
-2. **후보**: 평점이 20개 이상이고 이 사람이 아직 안 가 본 {CATEGORY_KO[category]}{"" if not use_hours else f" 중 {DAYS_KO[weekday]}요일 {hhmm(start_min)}부터 2시간 영업하는 곳"}만 남기고 상위 200곳을 후보로 뽑아요.
+2. **후보**: 평점이 20개 이상이고 이 사람이 아직 안 가 본 {CATEGORY_KO[category]}{"" if not use_hours else f" 중 {DAYS_KO[weekday]}요일 {hhmm(start_min)} 출발 일정 안에 머무는 내내 영업하는 때가 있는 곳"}만 남기고 상위 200곳을 후보로 뽑아요.
 3. **순위**: {rank_text}{f" 다양성 {diversity:g}: 이미 고른 곳과 비슷한 가게는 점수를 깎아요(MMR)." if diversity else ""} 상위 {n * days}곳을 골라요.
 4. **{"동네 묶기" if days > 1 else "동선"}**: {f"k-means로 {days}개 동네로 묶어 하루에 한 동네씩, " if days > 1 else ""}{"OpenStreetMap 보행 도로망에서 Dijkstra로 구한 도보 거리" if walking else "직선거리"}로 Held-Karp가 가장 짧은 방문 순서를 찾아요. 가게마다 {stay}분 머문다고 보고 도착 시각과 영업 상태를 계산해요.
 """)
