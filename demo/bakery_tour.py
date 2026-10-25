@@ -103,8 +103,11 @@ def main():
         loc = (row.lat, row.lon)
         # tooltip and popup text is rendered as HTML, so a business name such as
         # "<script>..." would run in the browser; html.escape(s) turns <, >, & and
-        # quotes into entities (&lt; ...) so the name is shown as plain text
-        name = html.escape(str(row["name"]))
+        # quotes into entities (&lt; ...) so the name is shown as plain text.
+        # folium also places this text inside a JavaScript template literal
+        # (`...`), where a backtick or "${...}" would end the string or run code,
+        # so ` and $ become the entities &#96; and &#36; (still shown as ` and $)
+        name = html.escape(str(row["name"])).replace("`", "&#96;").replace("$", "&#36;")
         folium.Marker(
             loc,
             tooltip=f"{step}. {name}",
