@@ -28,8 +28,8 @@ import streamlit.components.v1 as components
 from tasteroute.candidates import CandidateFilter
 from tasteroute.data import get_split, load_item_features, load_items, load_ratings, n_users_items
 from tasteroute.geo import haversine, user_anchors
-from tasteroute.item_extras import (DAYS, attribute_matrix, combine_features, hours_today, load_item_extras,
-                                    open_for, open_mask)
+from tasteroute.item_extras import (DAYS, attribute_matrix, combine_features, hours_day_at, hours_today,
+                                    load_item_extras, open_for, open_mask)
 from tasteroute.models.bpr import BPR
 from tasteroute.models.cbf import CBF
 from tasteroute.models.visit import LogisticRegression, VisitFeatures
@@ -67,9 +67,15 @@ st.markdown(f"""
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap');
   html, body, [class*="css"], .stMarkdown, .stText {{ font-family: Inter, -apple-system, "Apple SD Gothic Neo", sans-serif; }}
   #MainMenu, footer {{ visibility: hidden; }}
+  /* light scrollbars: a pale thumb that darkens a little on hover (Chrome/Safari and Firefox) */
+  * {{ scrollbar-width: thin; scrollbar-color: #dcdfe4 transparent; }}
+  ::-webkit-scrollbar {{ width: 8px; height: 8px; }}
+  ::-webkit-scrollbar-track {{ background: transparent; }}
+  ::-webkit-scrollbar-thumb {{ background: #dcdfe4; border-radius: 8px; }}
+  ::-webkit-scrollbar-thumb:hover {{ background: #c4c9d2; }}
   header[data-testid="stHeader"] {{ background: transparent; height: 0; }}
   .block-container {{ padding-top: 2.4rem; padding-bottom: 2rem; max-width: 1480px; }}
-  .tr-head {{ display: flex; align-items: baseline; gap: 14px; margin-bottom: 4px; }}
+  .tr-head {{ display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 14px; row-gap: 2px; margin-bottom: 4px; }}
   .tr-logo {{ font-size: 26px; font-weight: 700; letter-spacing: -0.02em; color: {INK}; }}
   .tr-logo span {{ color: {ACCENT}; }}
   .tr-sub {{ color: {MUTED}; font-size: 14px; }}
@@ -77,10 +83,24 @@ st.markdown(f"""
   .tile {{ background: #fff; border: 1px solid {BORDER}; border-radius: 12px; padding: 14px 16px;
            box-shadow: 0 1px 2px rgba(16,24,40,.06), 0 4px 12px rgba(16,24,40,.04); }}
   .tile.accent {{ background: {ACCENT_TINT}; border-color: #f6c7b3; }}
+  .tile.accent .lab, .tile.accent .note {{ color: #4b5563; }}  /* muted grey is 4.27:1 on the tint; this is 6.7:1 */
   .tile .lab {{ font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: {MUTED}; font-weight: 600; }}
   .tile .val {{ font-size: 28px; font-weight: 600; color: {INK}; font-variant-numeric: tabular-nums; margin-top: 2px; }}
   .tile .val small {{ font-size: 15px; color: {MUTED}; font-weight: 500; margin-left: 2px; }}
-  .tile .note {{ font-size: 12px; color: {MUTED}; margin-top: 2px; }}
+  .tile .note {{ font-size: 12px; color: {MUTED}; margin-top: 2px; line-height: 1.45; }}
+  /* tablet: 2 x 2 tiles; phone: smaller numbers so each tile stays on one line */
+  @media (max-width: 1100px) {{ .tiles {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} }}
+  @media (max-width: 560px) {{
+    .tiles {{ gap: 10px; }}
+    .tile {{ padding: 12px; }}
+    .tile .val {{ font-size: 22px; }}
+    .tr-sub {{ flex-basis: 100%; font-size: 13px; }}
+  }}
+  /* sidebar: numbered steps (one question per step, advanced options folded) */
+  .step {{ display: flex; align-items: center; gap: 8px; margin: 18px 0 6px; font-size: 14px; font-weight: 700; color: {INK}; }}
+  .step .n {{ width: 22px; height: 22px; border-radius: 50%; background: {ACCENT}; color: {INK}; font-size: 12px;
+              display: grid; place-items: center; flex: none; }}
+  .step-first {{ margin-top: 14px; }}
   .card-title {{ font-weight: 700; font-size: 15px; color: {INK}; margin-bottom: 0; }}
   .card-take {{ color: {MUTED}; font-size: 13px; margin: 2px 0 6px; }}
   table.tr {{ width: 100%; border-collapse: collapse; font-size: 13.5px; background: #fff; }}
@@ -89,13 +109,24 @@ st.markdown(f"""
   table.tr th:first-child, table.tr td:first-child {{ text-align: left; }}
   table.tr td {{ text-align: right; padding: 8px 10px; border-bottom: 1px solid #f0f1f3; font-variant-numeric: tabular-nums; }}
   table.tr td.best {{ font-weight: 700; background: {ACCENT_TINT}; color: #b8471c; }}
-  section[data-testid="stSidebar"] .stMarkdown h3 {{ font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: {MUTED}; }}
+  section[data-testid="stSidebar"] [data-testid="stExpander"] summary {{ font-weight: 600; }}
+  /* the sidebar header only holds the collapse button (no logo): take it out of the flow and pin
+     the button to the right end of the "코스 설정" title row, so it reads as the panel's close
+     control instead of floating alone above the title */
+  [data-testid="stSidebarHeader"] {{ position: absolute; top: 18px; right: 14px; left: auto; width: auto;
+                                     height: auto; padding: 0; z-index: 2; }}
+  [data-testid="stLogoSpacer"] {{ display: none; }}
+  [data-testid="stSidebarUserContent"] {{ padding-top: 22px; }}
+  .side-title {{ margin-top: 0; }}
+  .side-title b {{ padding-right: 44px; }}
+  .side-title b {{ display: block; font-size: 17px; font-weight: 700; color: {INK}; line-height: 28px; }}
+  .side-title span {{ display: block; font-size: 12.5px; color: {MUTED}; margin-top: 2px; }}
 </style>
 """, unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------------- engine (cached)
-@st.cache_resource(show_spinner="데이터와 모델을 준비하는 중... (처음 한 번, 약 20초)")
+@st.cache_resource(show_spinner="데이터와 모델을 준비하고 있어요… (처음 한 번만, 약 20초)")
 def load_engine():
     """Data, the CBF rating model, the candidate filter, and the optional extras.
 
@@ -177,29 +208,39 @@ def run_plan(user, start, category, n, method, tau, walking, days=1, diversity=0
 
 # ---------------------------------------------------------------- header
 st.markdown('<div class="tr-head"><div class="tr-logo">Taste<span>Route</span></div>'
-            '<div class="tr-sub">취향 기반 장소 추천과 실제 길을 따라가는 하루 동선 · Philadelphia, Yelp Open Dataset</div></div>',
+            '<div class="tr-sub">취향에 맞는 가게를 추천하고, 실제 길을 따라 걷는 하루 코스를 짜 드려요 · 필라델피아, Yelp 데이터</div></div>',
             unsafe_allow_html=True)
 
 eng = load_engine()
 tab_plan, tab_results, tab_data = st.tabs(["🗺️ 코스 짜기", "📊 실험 결과", "🔎 데이터"])
 
 # ---------------------------------------------------------------- sidebar controls
-METHODS = {"학습 모델 (로지스틱 회귀)": "learned", "BPR 순위 학습 + 거리": "bpr", "고정 규칙 (거리 감쇠 τ)": "fixed"}
+METHODS = {"거리 학습 모델 (기본)": "learned", "순위 학습 BPR + 거리": "bpr", "고정 거리 규칙 (τ)": "fixed"}
 DAYS_KO = dict(zip(DAYS, ["월", "화", "수", "목", "금", "토", "일"]))
 
+def step(n, title, first=False):
+    """Numbered sidebar step header (H.Dot-style stepped setup: one question per step)."""
+    # role="heading" keeps the four steps in screen-reader heading navigation without Streamlit's h3 styling
+    st.markdown(f'<div class="step{" step-first" if first else ""}" role="heading" aria-level="3">'
+                f'<span class="n" aria-hidden="true">{n}</span>{title}</div>',
+                unsafe_allow_html=True)
+
+
 with st.sidebar:
-    st.markdown("### 누구를 위한 코스?")
-    user_labels = {"새 방문자 (취향 정보 없음)": None}
-    user_labels.update({f"사용자 {u} · 평점 {int(eng['n_train'][u])}개": u for u in eng["examples"]})
+    st.markdown('<div class="side-title"><b>코스 설정</b><span>네 가지만 고르면 코스가 바로 만들어져요</span></div>',
+                unsafe_allow_html=True)
+    step(1, "누구를 위한 코스인가요?", first=True)
+    user_labels = {"처음 온 방문자 (취향 정보 없음)": None}
+    user_labels.update({f"Yelp 사용자 #{u} · 리뷰 {int(eng['n_train'][u])}개": u for u in eng["examples"]})
     user = user_labels[st.selectbox("사용자", list(user_labels), label_visibility="collapsed")]
 
-    st.markdown("### 어디서 출발?")
+    step(2, "어디서 출발하나요?")
     start_opts = list(STARTS)
     if user is not None:
-        start_opts = ["이 사용자의 생활권 중심"] + start_opts
+        start_opts = ["이 사용자가 자주 다니는 동네"] + start_opts
     start_opts.append("좌표 직접 입력")
     start_name = st.selectbox("출발지", start_opts, label_visibility="collapsed")
-    if start_name == "이 사용자의 생활권 중심":
+    if start_name == "이 사용자가 자주 다니는 동네":
         start = tuple(float(x) for x in eng["anchors"][user])
     elif start_name == "좌표 직접 입력":
         c1, c2 = st.columns(2)
@@ -210,38 +251,48 @@ with st.sidebar:
     else:
         start = STARTS[start_name]
 
-    st.markdown("### 무엇을?")
+    step(3, "어떤 곳을 몇 군데 갈까요?")
     category = st.selectbox("카테고리", CATEGORIES + [""], format_func=lambda c: f"{CATEGORY_KO[c]}" + (f" · {c}" if c else ""),
                             label_visibility="collapsed")
     c1, c2 = st.columns(2)
-    n = c1.slider("하루에 갈 곳", 3, 8, 6)
-    days = c2.slider("며칠", 1, 3, 1, help="2일 이상이면 추천 장소를 k-means로 동네별로 묶어 하루에 한 동네씩 돌아요.")
+    n = c1.slider("하루 방문 수", 3, 8, 6)
+    days = c2.slider("여행 일수", 1, 3, 1, help="2일 이상이면 추천한 곳을 동네별로 나눠(k-means) 하루에 한 동네씩 돌아요.")
 
-    st.markdown("### 언제?")
+    step(4, "언제 가나요?")
     has_hours = eng["extras"] is not None
     c1, c2 = st.columns(2)
     weekday = c1.selectbox("요일", DAYS, index=5, format_func=lambda d: DAYS_KO[d] + "요일")
     start_time = c2.time_input("출발 시각", value=dt.time(11, 0), step=900)
-    stay = st.slider("가게마다 머무는 시간 (분)", 10, 60, 25, 5)
-    use_hours = st.toggle("영업 중인 곳만", value=has_hours, disabled=not has_hours,
-                          help="그날 일정 시간(장소 수 × (머무는 시간 + 이동 15분)) 안에 머무는 내내 영업하는 때가 있는 "
-                          "곳만 골라요. 영업시간 정보가 없는 곳은 포함해요."
-                          if has_hours else "python -m tasteroute.item_extras 를 먼저 실행하면 켤 수 있어요.")
+    stay = st.slider("한 곳에 머무는 시간 (분)", 10, 60, 25, 5)
+    use_hours = st.toggle("문 여는 곳만 추천", value=has_hours, disabled=not has_hours,
+                          help="그날 일정 중에 머무는 동안 계속 문을 여는 곳만 골라요. 영업시간 정보가 없는 곳도 포함해요."
+                          if has_hours else "영업시간 데이터가 없어요. python -m tasteroute.item_extras 를 먼저 실행해 주세요.")
 
-    st.markdown("### 어떻게 고를까?")
-    options = [k for k, v in METHODS.items()
-               if not (v == "learned" and eng["learned"] is None) and not (v == "bpr" and eng["bpr"] is None)]
-    method = METHODS[st.radio("순위 방식", options, label_visibility="collapsed")]
-    tau = 2.0
-    if method in ("fixed", "bpr"):
-        tau = st.slider("τ (km): 클수록 먼 곳도 추천", 0.5, 5.0, 2.0, 0.5)
-    diversity = st.slider("다양성", 0.0, 0.8, 0.0, 0.1,
-                          help="0이면 점수 순서 그대로. 올릴수록 서로 다른 종류의 가게를 섞어요 (MMR).")
-    walking = st.toggle("실제 도보 경로 (OpenStreetMap)", value=True,
-                        help="끄면 장소 사이를 직선으로 잇고, 거리도 직선거리로 계산해요.")
+    # advanced: the defaults are the experiments' best settings, so most visitors never open this
+    with st.expander("고급 설정 · 추천 방식과 길 찾기"):
+        options = [k for k, v in METHODS.items()
+                   if not (v == "learned" and eng["learned"] is None) and not (v == "bpr" and eng["bpr"] is None)]
+        method = METHODS[st.radio("추천 방식", options)]
+        tau = 2.0
+        if method in ("fixed", "bpr"):
+            tau = st.slider("거리 민감도 τ (km) · 클수록 먼 곳도 추천해요", 0.5, 5.0, 2.0, 0.5)
+        diversity = st.slider("다양성", 0.0, 0.8, 0.0, 0.1,
+                              help="0이면 점수 순서 그대로예요. 올릴수록 종류가 다른 가게를 섞어요 (MMR).")
+        walking = st.toggle("실제 길 따라 걷기 (OpenStreetMap)", value=True,
+                            help="끄면 장소 사이를 직선으로 잇고, 거리도 직선으로 재요.")
 
 # ---------------------------------------------------------------- tab 1: plan
-DAY_COLORS = ["#eb6834", "#2a78d6", "#1baf7a"]
+DAY_COLORS = ["#eb6834", "#2874d0", "#1baf7a"]
+# number text on each day color: whichever of ink / white contrasts more (4.85, 4.67, 5.51 : 1)
+DAY_TEXT = ["#1f2430", "#ffffff", "#1f2430"]
+
+
+def hm(minutes, unit=True):
+    """'3시간 6분' (big number with small units for a tile) or plain '3시간 6분' text."""
+    h, m = divmod(int(round(minutes)), 60)
+    if not unit:
+        return f"{h}시간 {m}분" if h else f"{m}분"
+    return (f"{h}<small>시간</small> {m}<small>분</small>" if h else f"{m}<small>분</small>")
 
 
 def hhmm(minute):
@@ -254,21 +305,21 @@ with tab_plan:
     # after one failed street download, stay on straight lines until the user retries
     if walking and st.session_state.get("osm_failed"):
         c1, c2 = st.columns([5, 1])
-        c1.info("OpenStreetMap 서버가 응답하지 않아요. 도로망을 받아 둔 지역의 코스는 도보 경로로, "
-                "아닌 코스는 직선 경로로 보여드려요.")
-        if c2.button("도보 경로 다시 시도"):
+        c1.info("지도 서버(OpenStreetMap)가 응답하지 않아요. 길 정보를 미리 받아 둔 지역은 실제 길로, "
+                "나머지는 직선으로 보여 드려요.")
+        if c2.button("길 정보 다시 받기"):
             st.session_state.osm_failed = False
             st.rerun()
     start_min = start_time.hour * 60 + start_time.minute
     when = (weekday, start_min, stay) if use_hours else None
     args = (user, start, category, n, method, tau)
     try:
-        with st.spinner("코스를 짜는 중... (새 지역의 도로망은 처음 한 번 받아요)"):
+        with st.spinner("코스를 만들고 있어요… (처음 가는 지역은 길 정보를 받느라 조금 걸려요)"):
             plan = run_plan(*args, walking, days, diversity, when, cache_only=bool(st.session_state.get("osm_failed")))
     except RuntimeError:  # street download failed, or not cached while the server is down
         if not st.session_state.get("osm_failed"):
             st.session_state.osm_failed = True
-            st.warning("OpenStreetMap에서 이 지역 도로망을 받지 못해 직선 경로로 보여드려요.")
+            st.warning("이 지역의 길 정보를 받지 못해 직선으로 보여 드려요.")
         plan = run_plan(*args, False, days, diversity, when)
         walking = False
 
@@ -298,13 +349,13 @@ with tab_plan:
                 "name": row["name"], "lat": float(row.lat), "lon": float(row.lon), "stars": float(row.stars),
                 "reviews": int(row.review_count), "pred": plan["stars"][i], "rank": rank_of[i], "tags": tags,
                 "leg_km": leg, "leg_min": int(round(leg / WALK_KMH * 60)), "arrive": hhmm(arrive),
-                # hours of the weekday the visit actually falls on (after midnight: the next day)
-                "hours": hours_today(hours, DAYS[(DAYS.index(wd) + int(arrive // 1440)) % 7]) if hours else None,
+                # hours of the opening that covers the arrival (Tue 01:00 in a Mon 17:00-02:00 opening: Monday)
+                "hours": hours_today(hours, hours_day_at(hours, wd, arrive)) if hours else None,
                 "status": status,
-                "why": f"출발지에서 직선 {d0:.1f}km · 인기 상위 {max(top, 0.1):.1f}%",
+                "why": f"출발지에서 직선 {d0:.1f}km · 리뷰 수 상위 {max(top, 0.1):.1f}%",
             })
         view_days.append({"label": f"{d + 1}일차 · {DAYS_KO[wd]}요일" if len(plan["days"]) > 1 else f"{DAYS_KO[wd]}요일",
-                          "color": DAY_COLORS[d % 3], "stops": stops, "path": day["path"], "rec_path": day["rec_path"],
+                          "color": DAY_COLORS[d % 3], "text": DAY_TEXT[d % 3], "stops": stops, "path": day["path"], "rec_path": day["rec_path"],
                           "end": hhmm(t), "km": day["route_km"]})
 
     total_km = sum(x["route_km"] for x in plan["days"])
@@ -313,18 +364,19 @@ with tab_plan:
     walk_min = total_km / WALK_KMH * 60
     n_places = sum(len(x["places"]) for x in plan["days"])
     dist_kind = "도보" if walking else "직선"
-    method_note = {"learned": "학습 모델", "bpr": f"BPR + 거리 τ={tau:g}km", "fixed": f"고정 규칙 τ={tau:g}km"}[method]
-    hours_note = f"영업 중인 곳만 · {closed}곳 도착 시 닫힘" if use_hours else "영업시간 무시"
+    method_note = {"learned": "거리 학습 모델", "bpr": f"BPR + 거리 τ={tau:g}km", "fixed": f"고정 규칙 τ={tau:g}km"}[method]
+    hours_note = ("모두 영업 중에 도착" if closed == 0 else f"{closed}곳은 도착 때 문 닫음") if use_hours else "영업시간 미반영"
+    end_note = f" · {view_days[0]['end']} 종료" if len(view_days) == 1 else ""
     st.markdown(f"""
     <div class="tiles">
       <div class="tile"><div class="lab">총 {dist_kind} 거리</div><div class="val">{total_km:.1f}<small>km</small></div>
-        <div class="note">직선으로 재면 {sum(x['straight_km'] for x in plan['days']):.1f}km</div></div>
-      <div class="tile"><div class="lab">{"걷는 시간" if walking else "직선 환산 시간"} + 머무는 시간</div><div class="val">{walk_min:.0f}<small>분</small> + {n_places * stay}<small>분</small></div>
-        <div class="note">{len(plan['days'])}일 · 시속 {WALK_KMH:g}km · {hours_note}</div></div>
+        <div class="note">직선거리로는 {sum(x['straight_km'] for x in plan['days']):.1f}km</div></div>
+      <div class="tile"><div class="lab">총 소요 시간</div><div class="val">{hm(walk_min + n_places * stay)}</div>
+        <div class="note">{"걷기" if walking else "걷기(직선 기준)"} {hm(walk_min, unit=False)} · 머물기 {hm(n_places * stay, unit=False)}{end_note} · {hours_note}</div></div>
       <div class="tile"><div class="lab">방문 장소</div><div class="val">{n_places}<small>곳</small></div>
         <div class="note">{CATEGORY_KO[category]} · {method_note}{f" · 다양성 {diversity:g}" if diversity else ""}</div></div>
-      <div class="tile accent"><div class="lab">추천 순서보다</div><div class="val">▼ {saved:.1f}<small>km</small></div>
-        <div class="note">Held-Karp 최적 순서 · {saved / max(rec_km, 1e-9) * 100:.0f}% 절약</div></div>
+      <div class="tile accent"><div class="lab">추천 순서대로 갈 때보다</div><div class="val">▼ {saved:.1f}<small>km</small></div>
+        <div class="note">최적 순서(Held-Karp)로 {saved / max(rec_km, 1e-9) * 100:.0f}% 단축</div></div>
     </div>""", unsafe_allow_html=True)
 
     n_days = len(plan["days"])  # can be fewer than asked for when few places qualify
@@ -332,7 +384,7 @@ with tab_plan:
     lats, lons = [p[0] for p in pts], [p[1] for p in pts]
     data = {
         "title": f"{'오늘의' if n_days == 1 else f'{n_days}일'} {CATEGORY_KO[category]} 코스",
-        "subtitle": f"{start_name}에서 {hhmm(start_min)} 출발 · 카드를 누르면 지도가 그곳으로 가요",
+        "subtitle": f"{start_name}에서 {hhmm(start_min)} 출발 · 카드를 누르면 지도에서 보여 줘요",
         "walking": walking, "start": {"name": start_name, "lat": start[0], "lon": start[1]}, "days": view_days,
         "bounds": [[min(lons), min(lats)], [max(lons), max(lats)]],
     }
@@ -342,15 +394,15 @@ with tab_plan:
 
     with st.expander("이 코스는 어떻게 만들어졌나요?"):
         rank_text = {
-            "learned": "학습된 로지스틱 회귀가 거리, 개인 이동 반경, 예상 별점, 인기도로 방문 가능성을 점수 매겨요.",
-            "bpr": f"BPR(간 곳과 안 간 곳의 순위를 직접 학습한 모델)의 점수 × e^(−거리/{tau:g}km)로 골라요.",
-            "fixed": f"점수 × e^(−거리/{tau:g}km)로 가까운 곳을 우대해요.",
+            "learned": "로지스틱 회귀로 학습한 모델이 거리, 평소 이동 반경, 예상 별점, 인기도를 보고 갈 만한 곳에 점수를 매겨요.",
+            "bpr": f"BPR(실제로 간 곳과 안 간 곳을 비교해 순위를 학습한 모델)의 점수에 e^(−거리/{tau:g}km)를 곱해 골라요.",
+            "fixed": f"점수에 e^(−거리/{tau:g}km)를 곱해 가까운 곳을 앞으로 올려요.",
         }[method]
         st.markdown(f"""
-1. **예상 별점**: {"새 방문자라 전체 평균 + 장소 편향(μ + b_i)" if user is None else f"사용자 {user}의 취향(CBF: bias + 카테고리 취향)"}으로 모든 장소의 별점을 예측해요. 카드의 '예상 ★'이에요.
-2. **후보**: 평점이 20개 이상이고 이 사람이 아직 안 가 본 {CATEGORY_KO[category]}{"" if not use_hours else f" 중 {DAYS_KO[weekday]}요일 {hhmm(start_min)} 출발 일정 안에 머무는 내내 영업하는 때가 있는 곳"}만 남기고 상위 200곳을 후보로 뽑아요.
-3. **순위**: {rank_text}{f" 다양성 {diversity:g}: 이미 고른 곳과 비슷한 가게는 점수를 깎아요(MMR)." if diversity else ""} 상위 {n * days}곳을 골라요.
-4. **{"동네 묶기" if days > 1 else "동선"}**: {f"k-means로 {days}개 동네로 묶어 하루에 한 동네씩, " if days > 1 else ""}{"OpenStreetMap 보행 도로망에서 Dijkstra로 구한 도보 거리" if walking else "직선거리"}로 Held-Karp가 가장 짧은 방문 순서를 찾아요. 가게마다 {stay}분 머문다고 보고 도착 시각과 영업 상태를 계산해요.
+1. **예상 별점**: {"처음 온 방문자라 전체 평균에 가게별 보정(μ + b_i)을 더해" if user is None else f"사용자 #{user}의 취향(CBF: bias + 카테고리 취향)으로"} 모든 가게의 별점을 예측해요. 카드의 '예상 ★'이 이 값이에요.
+2. **후보**: 리뷰가 20개 이상이고 아직 안 가 본 {CATEGORY_KO[category]}{"" if not use_hours else f" 가운데 {DAYS_KO[weekday]}요일 {hhmm(start_min)} 출발 일정 동안 문을 여는 곳"}을 추려, 점수가 높은 200곳을 후보로 뽑아요.
+3. **순위**: {rank_text}{f" 다양성을 {diversity:g}로 두어 이미 고른 곳과 비슷한 가게는 점수를 낮춰요(MMR)." if diversity else ""} 그중 상위 {n * days}곳을 골라요.
+4. **{"동네 나누기와 동선" if days > 1 else "동선"}**: {f"k-means로 {days}개 동네로 나눠 하루에 한 동네씩 돌고, " if days > 1 else ""}{"OpenStreetMap 보행 도로망에서 Dijkstra로 구한 실제 걷는 거리" if walking else "직선거리"}를 기준으로 Held-Karp가 가장 짧은 방문 순서를 찾아요. 한 곳에 {stay}분씩 머문다고 보고 도착 시각과 영업 여부를 계산해요.
 """)
 
 # ---------------------------------------------------------------- tab 2: results
@@ -381,14 +433,14 @@ with tab_results:
         s = rt["summary"]
         st.markdown(f"""
         <div class="tiles">
-          <div class="tile"><div class="lab">최저 test RMSE</div><div class="val">{best_rmse[1]['rmse']:.3f}</div>
-            <div class="note">{best_rmse[0]} · 전체 평균 {warm['Global mean']['rmse']:.3f}</div></div>
+          <div class="tile"><div class="lab">가장 낮은 오차 (test RMSE)</div><div class="val">{best_rmse[1]['rmse']:.3f}</div>
+            <div class="note">{best_rmse[0]} · 평균만 쓰면 {warm['Global mean']['rmse']:.3f}</div></div>
           <div class="tile"><div class="lab">거리 재순위화 (RQ1)</div><div class="val">{hyb['mean_dist_km']:.1f}→{tau2['mean_dist_km']:.1f}<small>km</small></div>
             <div class="note">NDCG@10 {hyb['NDCG@10']:.4f} → {tau2['NDCG@10']:.4f}</div></div>
-          <div class="tile"><div class="lab">NN + 2-opt 최적해 (RQ3)</div><div class="val">{s['nn_2opt_optimal_share'] * 100:.0f}<small>%</small></div>
-            <div class="note">평균 차이 {s['nn_2opt_mean_gap'] * 100:.1f}%</div></div>
-          <div class="tile accent"><div class="lab">추천 순서 그대로면</div><div class="val">+{s['rec_order_median_extra'] * 100:.0f}<small>%</small></div>
-            <div class="note">최적 경로보다 더 걷는 거리 (중앙값)</div></div>
+          <div class="tile"><div class="lab">빠른 탐색이 최적인 비율 (RQ3)</div><div class="val">{s['nn_2opt_optimal_share'] * 100:.0f}<small>%</small></div>
+            <div class="note">NN + 2-opt · 최적과 평균 {s['nn_2opt_mean_gap'] * 100:.1f}% 차이</div></div>
+          <div class="tile accent"><div class="lab">추천 순서대로 걸으면</div><div class="val">+{s['rec_order_median_extra'] * 100:.0f}<small>%</small></div>
+            <div class="note">최적 경로보다 더 걷는 비율 (중앙값)</div></div>
         </div>""", unsafe_allow_html=True)
 
         c1, c2 = st.columns(2, gap="medium")
@@ -407,7 +459,7 @@ with tab_results:
                          alt.Tooltip("hi:Q", format=".4f", title="CI 상한")])
             labels = base.mark_text(align="left", dx=10, fontSize=11, color=MUTED).encode(
                 x="hi:Q", text=alt.Text("rmse:Q", format=".3f"))
-            chart_card("별점 예측: 모델 비교", "Bias, CBF, Hybrid가 통계적으로 같은 1.051. 평점이 희소해서 bias 외 구조를 배우기 어려워요.",
+            chart_card("별점 예측: 모델 비교", "Bias, CBF, Hybrid 모두 1.051로 서로 유의한 차이가 없어요. 사용자마다 평점이 적어서 bias 말고는 배울 구조가 거의 없어요.",
                        err + dots + labels)
         with c2:
             rr = pd.DataFrame(rk["rerank"])
@@ -422,7 +474,7 @@ with tab_results:
             nod = alt.Chart(pd.DataFrame([{"d": hyb["mean_dist_km"], "n": hyb["NDCG@10"], "label": "거리 반영 없음"}])).encode(
                 x="d:Q", y="n:Q")
             chart_card("RQ1 · 거리를 넣으면 더 가깝고 더 정확해요",
-                       "점 하나가 거리 감쇠 τ 하나. 사용자는 실제로 가까운 곳을 다녀서, 거리를 넣어도 정확도가 오히려 올라요.",
+                       "점 하나가 τ 값 하나예요. 사람들은 실제로 가까운 곳을 다니기 때문에, 거리를 반영하면 정확도가 오히려 올라요.",
                        pts + nod.mark_point(color=INK, size=80, filled=True) + nod.mark_text(dx=8, align="left", color=INK).encode(text="label"))
 
         c3, c4 = st.columns(2, gap="medium")
@@ -445,7 +497,7 @@ with tab_results:
                 ch = bars + vals
                 m = ld["model"]
                 chart_card("거리 민감도 학습 (로지스틱 회귀)",
-                           f"튜닝한 규칙과 유의한 차이는 없고(p = 0.36) 커버리지는 더 넓어요. 1km 더 멀면 인기도 {m['popularity_factor_per_km_at_1km']:.2f}배여야 상쇄.",
+                           f"직접 튜닝한 규칙과 유의한 차이는 없지만(p = 0.36) 더 다양한 가게를 추천해요. 1km 더 먼 곳은 인기가 {m['popularity_factor_per_km_at_1km']:.2f}배는 돼야 같은 점수를 받아요.",
                            ch)
         with c4:
             pu = pd.DataFrame(rt["per_user"])
@@ -485,7 +537,7 @@ with tab_results:
 # ---------------------------------------------------------------- tab 3: data
 EDA = [
     ("P1_preprocessing_pipeline", "전처리 단계별 데이터 규모"), ("E6_spatial_density", "필라델피아 음식점 분포"),
-    ("E8_user_activity_radius", "사용자 활동 반경: 대부분 가까운 곳만 다녀요"), ("E4_popularity_lorenz", "인기도 쏠림 (Lorenz)"),
+    ("E8_user_activity_radius", "사용자 활동 반경: 대부분 가까운 곳을 다녀요"), ("E4_popularity_lorenz", "인기도 쏠림 (Lorenz)"),
     ("E3_activity_long_tail", "사용자 활동의 긴 꼬리"), ("E1_rating_distribution", "별점 분포"),
     ("E9_category_frequency", "카테고리 빈도"), ("E12_popularity_vs_quality", "인기도와 평균 별점"),
 ]
@@ -493,8 +545,8 @@ with tab_data:
     st.markdown("""
     <div class="tiles">
       <div class="tile"><div class="lab">원본 리뷰</div><div class="val">6.99<small>M</small></div><div class="note">Yelp Open Dataset 전체</div></div>
-      <div class="tile"><div class="lab">시청 15km 음식점</div><div class="val">809<small>K</small></div><div class="note">중복 제거 후 평점</div></div>
-      <div class="tile"><div class="lab">5-core 작업 데이터</div><div class="val">490,539</div><div class="note">사용자 31,743 · 장소 7,693</div></div>
+      <div class="tile"><div class="lab">시청 반경 15km 음식점</div><div class="val">809<small>K</small></div><div class="note">중복 제거 후 평점</div></div>
+      <div class="tile"><div class="lab">분석용 데이터 (5-core)</div><div class="val">490,539</div><div class="note">사용자 31,743 · 장소 7,693</div></div>
       <div class="tile accent"><div class="lab">밀도</div><div class="val">0.20<small>%</small></div><div class="note">사용자당 학습 평점 중앙값 6개</div></div>
     </div>""", unsafe_allow_html=True)
     fig_dir = ROOT / "data_analysis_preprocessing" / "figures"
