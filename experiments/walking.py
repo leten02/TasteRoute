@@ -90,7 +90,9 @@ def main():
     print(f"test: {len(users)} users inside the network ({time.time() - t0:.0f}s)", flush=True)
 
     # detour factor over all (anchor, candidate) pairs farther than 300 m
-    ratios = np.concatenate([p[3][p[2] > 0.3] / p[2][p[2] > 0.3] for p in pools])
+    ratios = np.concatenate([p[3][p[2] > 0.3] / p[2][p[2] > 0.3] for p in pools] + [np.empty(0)])
+    if len(ratios) == 0:
+        raise RuntimeError("no (anchor, place) pairs inside the network; download it with python -m tasteroute.roads")
     out["detour"] = {"pairs": int(len(ratios)), "median": float(np.median(ratios)),
                      "p10": float(np.percentile(ratios, 10)), "p90": float(np.percentile(ratios, 90)),
                      "hist": np.histogram(ratios, bins=np.arange(1.0, 2.05, 0.05))[0].tolist()}
@@ -105,19 +107,21 @@ def main():
             order = np.argsort(-(to_unit(sc) * np.exp(-(ds if col == 2 else dw) / best_tau[kind])), kind="stable")[:10]
             top = cand[order]
             lists.append(top)
-            walk_km.append(dw[order].mean())
+            if len(order):  # a user whose pool is empty has no list distance
+                walk_km.append(dw[order].mean())
             ndcg.append(ndcg_at_k(top, rel, 10))
             prec.append(precision_at_k(top, rel, 10))
         per_user[kind] = np.array(ndcg)
         out["rq1"][kind] = {"tau": best_tau[kind], "NDCG@10": float(np.mean(ndcg)), "P@10": float(np.mean(prec)),
-                            "mean_walk_km": float(np.mean(walk_km))}
+                            "mean_walk_km": float(np.mean(walk_km)) if walk_km else None}
     t = stats.ttest_rel(per_user["walking"], per_user["straight"])
     out["rq1"]["walking_vs_straight"] = {"diff": float(np.mean(per_user["walking"] - per_user["straight"])),
                                          "p": float(t.pvalue)}
     for kind in ("straight", "walking"):
         r = out["rq1"][kind]
         print(f"RQ1 re-rank by {kind:<8} tau={r['tau']:<4} NDCG@10 {r['NDCG@10']:.4f}  P@10 {r['P@10']:.4f}  "
-              f"list walking distance {r['mean_walk_km']:.2f} km", flush=True)
+              f"list walking distance {r['mean_walk_km'] if r['mean_walk_km'] is None else round(r['mean_walk_km'], 2)} km",
+              flush=True)
     print(f"RQ1 walking vs straight NDCG@10 {out['rq1']['walking_vs_straight']['diff']:+.4f} "
           f"p = {out['rq1']['walking_vs_straight']['p']:.3g}", flush=True)
 
@@ -136,6 +140,8 @@ def main():
         rows.append({"u": int(u), "walk_optimal": best, "walk_of_straight_order": path_length(r.D, order_s),
                      "walk_of_rec_order": path_length(r.D, range(1, N_ROUTE + 1)),
                      "straight_optimal": path_length(distance_matrix(pts_lat, pts_lon), order_s)})
+    if not rows:
+        raise RuntimeError("no test user has 6 connected places inside the network")
     extra = np.array([x["walk_of_straight_order"] / x["walk_optimal"] - 1 for x in rows])
     out["rq3"] = {
         "users": len(rows), "same_order_share": float(np.mean(extra < 1e-9)),

@@ -147,7 +147,11 @@ class RoadNetwork:
         each query in O(log n). Coordinates are scaled to km first (longitude
         shrinks by cos(latitude)) so nearest in the tree means nearest on the map.
         """
+        # np.atleast_1d(x) turns a single number into a length-1 array (arrays pass
+        # through), so one point and many points take the same path below
         lat, lon = np.atleast_1d(lat).astype(float), np.atleast_1d(lon).astype(float)
+        # np.column_stack([a, b]) puts 1-D arrays side by side as columns: an n x 2
+        # matrix of (north km, east km) rows, the input format of cKDTree
         if not hasattr(self, "_tree"):
             from scipy.spatial import cKDTree
 
