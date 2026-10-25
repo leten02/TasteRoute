@@ -45,10 +45,16 @@ def main():
     ap.add_argument("--category", default="Bakeries", help="Yelp category to tour")
     ap.add_argument("--straight", action="store_true", help="straight-line routing (no OpenStreetMap download)")
     args = ap.parse_args()
+    # a start point needs both coordinates; one alone would be silently ignored
+    if (args.lat is None) != (args.lon is None):
+        ap.error("--lat and --lon must be given together")
 
     r = load_ratings()
     items = load_items()
     n_users, n_items = n_users_items(r)
+    # a negative id would index from the end of the arrays and pick the last users
+    if args.user is not None and not 0 <= args.user < n_users:
+        ap.error(f"--user must be between 0 and {n_users - 1}, got {args.user}")
     X, _ = load_item_features()
     train = get_split(r, "train")
     model = CBF(n_users, n_items, X, lam=30).fit(train)
