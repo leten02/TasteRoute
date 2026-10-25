@@ -322,7 +322,7 @@ def b1_bpr_activity():
     ax.set_ylabel("NDCG@10")
     ax.text(len(rows) - 0.55, ax.get_ylim()[1] * 0.97, "grey popularity · orange BPR", ha="right", va="top",
             fontsize=9, color=INK2)
-    titled(fig, "No overall gain over popularity; BPR is ahead only for active users",
+    titled(fig, "No overall gain over popularity; the only significant edge is at 21+ ratings",
            f"Overall BPR {d['test']['BPR']['NDCG@10']:.4f} vs popularity {d['test']['Popularity']['NDCG@10']:.4f} "
            f"(p = {d['paired']['BPR vs Popularity']['p']:.2f}) · subgroup p not corrected for 3 tests · 3,000 test users")
     save(fig, "B1_bpr_by_activity")

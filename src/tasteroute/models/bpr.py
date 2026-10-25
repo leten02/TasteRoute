@@ -9,9 +9,10 @@ BPR learns the ranking directly from which places a user went to:
 
 and, for a place i the user went to and a place j they did not, maximizes
 
-    ln sigma(x_ui - x_uj) - lam * (||p_u||^2 + ||q_i||^2 + ||q_j||^2 + b_i^2 + b_j^2)
+    ln sigma(x_ui - x_uj) - lam / 2 * (||p_u||^2 + ||q_i||^2 + ||q_j||^2 + b_i^2 + b_j^2)
 
-with stochastic gradient ascent over sampled (u, i, j) triples. The item bias
+with stochastic gradient ascent over sampled (u, i, j) triples (the lam / 2
+makes the regularization gradient -lam * p_u, as in the updates below). The item bias
 b_i lets the model learn popularity; p_u . q_i learns the personal part.
 
 Reference: S. Rendle, C. Freudenthaler, Z. Gantner, L. Schmidt-Thieme,
@@ -82,21 +83,32 @@ class BPR:
             self.P, self.Q, self.b = best_state
         return self
 
+    def _is_seen(self, u, j):
+        """True where user u[k] has gone to item j[k] (binary search in the sorted keys)."""
+        keys = u * self.n_items + j
+        pos = np.searchsorted(self._seen, keys)
+        return (pos < len(self._seen)) & (self._seen[np.minimum(pos, len(self._seen) - 1)] == keys)
+
     def _negatives(self, u, rng):
-        """One item per user in u that the user has not gone to (uniform, resampled)."""
+        """One item per user in u that the user has not gone to (uniform, resampled).
+
+        Returns (j, ok): ok is False where 10 redraws still hit a visited item
+        (a user who went almost everywhere); those triples must be skipped.
+        """
         j = rng.integers(self.n_items, size=len(u))
         for _ in range(10):
-            keys = u * self.n_items + j
-            pos = np.searchsorted(self._seen, keys)
-            hit = (pos < len(self._seen)) & (self._seen[np.minimum(pos, len(self._seen) - 1)] == keys)
+            hit = self._is_seen(u, j)
             if not hit.any():
                 break
             j[hit] = rng.integers(self.n_items, size=int(hit.sum()))
-        return j
+        return j, ~self._is_seen(u, j)
 
     def _step(self, u, i, rng):
         """One mini-batch of gradient ascent; returns the mean -ln sigma(x_uij)."""
-        j = self._negatives(u, rng)
+        j, ok = self._negatives(u, rng)
+        u, i, j = u[ok], i[ok], j[ok]
+        if len(u) == 0:
+            return 0.0
         pu, qi, qj = self.P[u], self.Q[i], self.Q[j]
         x = self.b[i] - self.b[j] + np.sum(pu * (qi - qj), axis=1)
         # d/dx ln sigma(x) = sigma(-x): how much each triple still needs to move

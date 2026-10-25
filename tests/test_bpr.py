@@ -28,9 +28,16 @@ def test_negatives_are_never_positives():
     train = _clusters()
     m = BPR(40, 20, f=2, max_epochs=1).fit(train)
     u = np.repeat(np.arange(40), 50)
-    j = m._negatives(u, np.random.default_rng(1))
+    j, ok = m._negatives(u, np.random.default_rng(1))
     seen = set(zip(train.u, train.i))
-    assert not any((a, b) in seen for a, b in zip(u.tolist(), j.tolist()))
+    assert ok.all() and not any((a, b) in seen for a, b in zip(u.tolist(), j.tolist()))
+
+
+def test_user_who_went_everywhere_is_skipped():
+    train = pd.DataFrame({"u": [0, 0, 1], "i": [0, 1, 0]})  # user 0 went to both items
+    m = BPR(2, 2, f=2, max_epochs=1).fit(train)
+    j, ok = m._negatives(np.array([0, 1]), np.random.default_rng(0))
+    assert list(ok) == [False, True] and j[1] == 1
 
 
 def test_early_stopping_restores_best_epoch():
