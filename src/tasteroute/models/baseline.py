@@ -10,6 +10,14 @@ import numpy as np
 MIN_STARS, MAX_STARS = 1.0, 5.0
 
 
+def _train_mean(train):
+    """Mean training rating; fails loudly on empty or non-finite stars (else NaN spreads)."""
+    stars = train.stars.values.astype(float)
+    if len(stars) == 0 or not np.all(np.isfinite(stars)):
+        raise ValueError("training ratings must be non-empty and finite")
+    return float(stars.mean())
+
+
 def _safe_div(num, den):
     """num / den, with 0 where den == 0 (an id with no ratings and lam = 0).
 
@@ -26,7 +34,7 @@ class GlobalMean:
         self.n_users, self.n_items = n_users, n_items
 
     def fit(self, train):
-        self.mu = float(train.stars.mean())
+        self.mu = _train_mean(train)
         return self
 
     def predict(self, u, i):
@@ -60,7 +68,7 @@ class BiasModel:
 
     def fit(self, train):
         u, i = train.u.values, train.i.values
-        self.mu = float(train.stars.mean())
+        self.mu = _train_mean(train)
         y = train.stars.values - self.mu
         # np.bincount(x, weights=w, minlength=n) sums w per integer id in x and
         # returns an array of length n; without weights it counts occurrences.

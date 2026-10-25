@@ -34,3 +34,14 @@ def test_global_mean():
     train = pd.DataFrame({"u": [0, 1], "i": [0, 0], "stars": [2, 4]})
     m = GlobalMean(2, 1).fit(train)
     assert list(m.predict([0, 1], [0, 0])) == [3.0, 3.0]
+
+
+def test_models_reject_empty_or_nan_training_data():
+    import numpy as np
+
+    empty = pd.DataFrame({"u": [], "i": [], "stars": []})
+    bad = pd.DataFrame({"u": [0], "i": [0], "stars": [np.nan]})
+    for model in (GlobalMean(1, 1), BiasModel(1, 1)):
+        for df in (empty, bad):
+            with pytest.raises(ValueError):
+                model.fit(df)
