@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | 1. 별점 예측 | 머신러닝 | Bias, Item-kNN, MF(SGD + L2), CBF(TF-IDF 카테고리 + ridge), Hybrid(적응형 alpha) |
 | 2. 거리 재순위화 | 알고리즘 | 예상 별점 × 거리 감쇠 가중치 (haversine, 기본: 지수 감쇠 tau = 2km) |
-| 3. 동선 최적화 | 알고리즘 | 최종 5~8곳의 최단 방문 순서 (Held-Karp DP, 비교: 완전탐색, NN + 2-opt) |
+| 3. 동선 최적화 | 알고리즘 | 최종 5~8곳의 최단 방문 순서 (Held-Karp DP, 비교: 완전탐색, NN + 2-opt). 데모는 OpenStreetMap 보행 도로망 위 Dijkstra 거리로 실제 길을 따라감 |
 
 ## 연구 질문
 
@@ -54,6 +54,7 @@ src/tasteroute/               패키지
   models/                       baseline(전체 평균, bias), mf, item_knn, cbf, hybrid
   candidates.py                 후보 생성, 인기도 blend
   geo.py                        haversine, 사용자 기준점
+  roads.py                      OpenStreetMap 보행 도로망, Dijkstra 도보 거리와 경로
   rerank.py                     거리 감쇠 재순위화
   route.py                      완전탐색, Held-Karp, NN, 2-opt
   pipeline.py                   한 사람의 하루 일정 (추천 → 재순위화 → 경로)
@@ -83,9 +84,11 @@ python experiments/run_all.py
 # 3. 테스트
 pytest
 
-# 4. 데모: 시청에서 출발하는 빵집 6곳 경로 → demo/bakery_tour.html
+# 4. 데모: 시청에서 출발하는 빵집 6곳, 실제 길을 따라가는 도보 경로 → demo/bakery_tour.html
+#    첫 실행 때 주변 보행 도로망을 OpenStreetMap에서 받는다 (약 1분, data/osm/에 캐시)
 python demo/bakery_tour.py            # 새 방문자
 python demo/bakery_tour.py --user 1458  # 데이터셋 사용자 맞춤 (전처리가 매긴 0부터의 내부 번호, Yelp user_id 아님)
+python demo/bakery_tour.py --straight   # 다운로드 없이 직선 연결
 ```
 
 실험을 하나씩 돌리려면 `python experiments/<이름>.py` (baseline, mf, item_knn, cbf_hybrid, compare_models, ranking, route, popularity, figures).
@@ -127,14 +130,18 @@ python demo/bakery_tour.py --user 1458  # 데이터셋 사용자 맞춤 (전처�
 - M. Held, R. Karp, "A Dynamic Programming Approach to Sequencing Problems", *J. SIAM*, 1962 — Held-Karp (`route.py`)
 - G. A. Croes, "A Method for Solving Traveling-Salesman Problems", *Operations Research*, 1958 — 2-opt (`route.py`)
 - Yelp Open Dataset, https://www.yelp.com/dataset — 데이터 (재배포 금지, 커밋 안 함)
+- OpenStreetMap contributors, https://www.openstreetmap.org — 보행 도로망 (ODbL, 데모 실행 때 받고 커밋 안 함)
+- G. Boeing, "OSMnx: New Methods for Acquiring, Constructing, Analyzing, and Visualizing Complex Street Networks", *Computers, Environment and Urban Systems*, 2017 — 도로망 다운로드 (`roads.py`)
+- E. W. Dijkstra, "A Note on Two Problems in Connexion with Graphs", *Numerische Mathematik*, 1959 — 최단 경로 (`roads.py`)
 
-수업에서 다루지 않은 라이브러리 함수(`np.bincount`, `scipy.sparse.csr_matrix`, `np.argpartition`, `np.linalg.solve`, `scipy.stats.ttest_rel`, `folium` 등)는 사용한 위치의 주석에 무엇을 하는지와 파라미터를 적었다.
+수업에서 다루지 않은 라이브러리 함수(`np.bincount`, `scipy.sparse.csr_matrix`, `np.argpartition`, `np.linalg.solve`, `scipy.stats.ttest_rel`, `scipy.sparse.csgraph.dijkstra`, `osmnx`, `folium` 등)는 사용한 위치의 주석에 무엇을 하는지와 파라미터를 적었다.
 
 ## 문서
 
 - [제안서](docs/Term_Project_Proposal.docx)
 - [코드 구현 계획](docs/TasteRoute_Code_Plan.md)
 - [구현 가이드](docs/TasteRoute_Build_Guide.md)
+- [실제 도보 길찾기](docs/Walking_Route.md)
 - [발표 개요](docs/TasteRoute_Slides_Outline.md)
 - [데이터 분석과 전처리](data_analysis_preprocessing/README.md)
 

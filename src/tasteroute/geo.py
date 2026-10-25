@@ -1,7 +1,7 @@
 """Distances on the sphere and each user's geographic anchor.
 
-Straight-line (great-circle) distance only; road distance would need an
-external routing service and is listed as a limitation. Proposal 6.1-6.2.
+Straight-line (great-circle) distance, used for re-ranking and the routing
+experiments. Walking distance along streets is in roads.py. Proposal 6.1-6.2.
 """
 import numpy as np
 
