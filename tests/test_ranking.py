@@ -104,3 +104,14 @@ def test_rerank_with_equal_scores_orders_by_distance():
     cand = np.array([7, 8, 9])
     top = rerank(cand, 1 + 4 * to_unit(np.full(3, 2.5)), np.array([3.0, 0.5, 1.0]), tau=2, k=3)
     assert list(top) == [8, 9, 7]
+
+
+def test_mmr_trades_relevance_for_variety():
+    from tasteroute.rerank import mmr
+
+    # items 0, 1 identical (feature a), item 2 different (feature b)
+    F = np.array([[1.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    cand, rel = np.array([0, 1, 2]), np.array([1.0, 0.95, 0.6])
+    assert list(mmr(cand, rel, F, lam=0.0, k=2)) == [0, 1]
+    assert list(mmr(cand, rel, F, lam=0.5, k=2)) == [0, 2]
+    assert len(mmr(cand[:0], rel[:0], F, lam=0.5, k=2)) == 0

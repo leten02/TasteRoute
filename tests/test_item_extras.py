@@ -41,3 +41,18 @@ def test_attribute_matrix_idf_and_combine():
     assert A[3].nnz == 0  # item without a record
     C = combine_features(sparse.csr_matrix(np.ones((4, 3))), A, 0.5)
     assert C.shape == (4, 5) and np.isclose(C[0, 4], 0.5 * A[0, 1])
+
+
+def test_open_mask_and_hours_text():
+    import pandas as pd
+
+    from tasteroute.item_extras import hours_today, open_mask
+
+    extras = pd.DataFrame({"hours": [{"Monday": (600, 1200)}, {}, {"Monday": (0, 1440)}]}, index=[0, 1, 2])
+    m = open_mask(extras, 4, "Monday", 700, stay_minutes=60)
+    assert list(m) == [True, True, True, True]
+    m = open_mask(extras, 4, "Monday", 1170, stay_minutes=60)  # 19:30 + 1 h passes 20:00
+    assert list(m) == [False, True, True, True]
+    assert hours_today({"Monday": (600, 1200)}, "Monday") == "10:00-20:00"
+    assert hours_today({"Monday": (0, 1440)}, "Monday") == "24시간"
+    assert hours_today({}, "Monday") is None

@@ -105,6 +105,29 @@ def is_open_at(hours, day, minute):
     return prev is not None and minute + 24 * 60 < prev[1]
 
 
+def open_mask(extras, n_items, day, minute, stay_minutes=0):
+    """Boolean array over item ids: open on `day` from `minute` for `stay_minutes`.
+
+    Places without listed hours count as open (unknown, not closed); items
+    missing from extras count as open too.
+    """
+    mask = np.ones(n_items, dtype=bool)
+    for i, hours in zip(extras.index.values, extras.hours.values):
+        if isinstance(hours, dict) and hours:
+            mask[i] = is_open_at(hours, day, minute) and is_open_at(hours, day, minute + stay_minutes)
+    return mask
+
+
+def hours_today(hours, day):
+    """'11:00-21:00' style text for one day, or None when not listed."""
+    if not isinstance(hours, dict) or day not in hours:
+        return None
+    a, b = hours[day]
+    if b - a >= 24 * 60:
+        return "24시간"
+    return f"{a // 60:02d}:{a % 60:02d}-{(b // 60) % 24:02d}:{b % 60:02d}"
+
+
 def build(items, raw=RAW):
     """DataFrame indexed by item id: attribute columns plus a `hours` column."""
     want = dict(zip(items.business_id, items.i))
