@@ -109,13 +109,42 @@ def is_open_at(hours, day, minute):
     return prev is not None and minute + 24 * 60 < prev[1]
 
 
+def _open_intervals(hours, day, first, last):
+    """Opening spans of days `first`..`last` (offsets from `day`), in minutes from `day`'s midnight.
+
+    Spans that touch or overlap are merged, so an all-day place gives one long span
+    and a gap between two openings stays a gap.
+    """
+    k = DAYS.index(day)
+    spans = []
+    for d in range(first, last + 1):
+        span = hours.get(DAYS[(k + d) % 7])
+        if span is not None:
+            spans.append((span[0] + d * 24 * 60, span[1] + d * 24 * 60))
+    merged = []
+    for s, e in sorted(spans):
+        if merged and s <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], e))
+        else:
+            merged.append((s, e))
+    return merged
+
+
 def open_for(hours, day, minute, stay_minutes):
     """True if open from `minute` through the last minute of a `stay_minutes` visit.
 
     The stay ends at minute + stay - 1, so a visit that ends exactly at closing
-    time (arrive 19:35, 25 minutes, closes 20:00) counts as open.
+    time (arrive 19:35, 25 minutes, closes 20:00) counts as open. The whole stay
+    must lie inside one continuous opening: a place that closes 00:10 and opens
+    again 00:30 is closed for a 23:50-00:49 visit. Places with no hours listed
+    count as open.
     """
-    return is_open_at(hours, day, minute) and is_open_at(hours, day, minute + max(stay_minutes - 1, 0))
+    if not hours:
+        return True
+    start = int(minute)
+    end = start + max(stay_minutes - 1, 0)
+    spans = _open_intervals(hours, day, start // (24 * 60) - 1, end // (24 * 60))
+    return any(s <= start and end < e for s, e in spans)
 
 
 def open_mask(extras, n_items, day, minute, stay_minutes=0, window_minutes=0, step=15):
@@ -133,6 +162,22 @@ def open_mask(extras, n_items, day, minute, stay_minutes=0, window_minutes=0, st
         if isinstance(hours, dict) and hours:
             mask[i] = any(open_for(hours, day, t, stay_minutes) for t in arrivals)
     return mask
+
+
+def hours_day_at(hours, day, minute):
+    """Weekday whose opening covers `minute` (from `day`'s midnight; may run past midnight).
+
+    A visit at Tuesday 01:00 to a place open Monday 17:00-02:00 falls in Monday's
+    opening, so this returns "Monday". If no opening covers the time, the
+    weekday the time falls on is returned.
+    """
+    roll, m = divmod(int(minute), 24 * 60)
+    k = (DAYS.index(day) + roll) % 7
+    start, end = hours.get(DAYS[k], (None, None))
+    if start is not None and start <= m < end:
+        return DAYS[k]
+    prev = hours.get(DAYS[k - 1])
+    return DAYS[k - 1] if prev is not None and m + 24 * 60 < prev[1] else DAYS[k]
 
 
 def hours_today(hours, day):
