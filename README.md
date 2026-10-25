@@ -49,7 +49,7 @@
 data/                         데이터 (커밋 안 함, data/README.md 참고)
 data_analysis_preprocessing/  전체 데이터 탐색, 전처리, EDA·전처리 그림과 결과
 src/tasteroute/               패키지
-  data.py                       전처리 결과 로드, split 조회
+  data.py                       전처리 결과 로드, split 조회, 시간순 분할
   metrics.py                    RMSE, MAE, Precision/Recall/HitRate/NDCG@K
   item_extras.py                원본에서 가게 속성 42개와 영업시간 추출
   models/                       baseline(전체 평균, bias), mf, item_knn, cbf, hybrid, content_knn,
@@ -131,6 +131,8 @@ streamlit run app/dashboard.py
 
 **랭킹 개선** (`results/popularity.json`): 예측 별점만으로는 인기순(P@10 0.0094)을 이기지 못한다. 별점에 log 인기도를 섞고(γ = 5) 거리 재순위화를 하면 P@10 0.0102지만, 인기순 + 거리(0.0100)와 사실상 같다. 이 데이터에서 랭킹 신호는 대부분 인기도와 거리에서 나온다.
 
+**시간순 분할** (`results/temporal.json`, [설명](docs/Temporal_Split.md)): 기존 분할은 사용자마다 평점을 섞어 나눠서 warm 사용자의 88%가 test보다 나중 평점으로 학습한다. 사용자마다 오래된 평점으로 학습하고 최근 평점으로 평가하면 Bias RMSE는 1.051 → 1.108, 인기순 NDCG@10은 0.0323 → 0.0218로 대부분의 지표가 나빠진다. 그래도 별점 모델 넷은 0.0005 안에서 같고, 거리 재순위화는 Hybrid NDCG@10을 0.0012 → 0.0049로 올리고 목록 거리를 5.0km → 2.3km로 줄이며, 가장 좋은 방법은 여전히 Hybrid blend + 거리(0.0245)다. 결론은 분할 방식에 달려 있지 않다.
+
 **거리 민감도 학습** (`results/learned_distance.json`, [설명](docs/ML_Learned_Distance.md)): 고정 규칙 `e^(-d/2km)` 대신 로지스틱 회귀(직접 구현한 경사하강법 + L2)로 거리, 개인 이동 반경, 예상 별점, 인기도의 가중치를 학습했다. 기존 설정보다 NDCG@10이 유의하게 높고(0.0340 → 0.0365, p = 0.003), 검증으로 튜닝한 고정 규칙과는 유의한 차이를 찾지 못했고(p = 0.36), 커버리지는 더 넓었다(1.01% → 1.26%, 점 추정값). 개인 이동 반경을 빼면 유의하게 나빠진다. 1km 지점에서 1km 더 멀어지는 손해는 인기도 1.56배로 상쇄된다.
 
 **순위 학습 BPR** (`results/bpr.json`, [설명](docs/BPR.md)): 별점 대신 "어디에 갔는가"의 순위를 쌍 비교 손실로 직접 학습했다. 전체로는 인기순보다 낫다는 증거가 없고(NDCG@10 0.0326 vs 0.0323, p = 0.61), 활동량별로는 21개 이상 집단에서만 유의하게 앞섰다(0.0419 vs 0.0381, p = 0.03, 세 집단 보정 전; 6~20개 집단도 평균은 높지만 p = 0.13). 학습 목표를 순위로 바꿔도 이 데이터의 개인화 신호는 약하다.
@@ -163,6 +165,7 @@ streamlit run app/dashboard.py
 - [순위 학습 BPR](docs/BPR.md)
 - [가게 속성으로 cold start 다시 보기 (RQ2)](docs/Cold_Start.md)
 - [실제 도보 거리로 RQ1·RQ3 다시 재기](docs/Walking_Eval.md)
+- [시간순 분할로 다시 평가하기](docs/Temporal_Split.md)
 - [대시보드](docs/Dashboard.md)
 - [코드 읽기 안내 (구조, 수식, 읽는 순서, 발표 예상 질문)](docs/Code_Walkthrough.md)
 - [발표 개요](docs/TasteRoute_Slides_Outline.md)
