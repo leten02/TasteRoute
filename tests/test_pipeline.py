@@ -140,3 +140,39 @@ def test_learned_model_with_diversity_and_no_columns():
     plan = plan_day(np.full(4, 4.0), filt, items, (40.0, -75.0), n=2, visit=(model, feats, None),
                     diversity=0.3, features=F)
     assert len(plan["places"]) == 2 and 3 not in plan["places"]
+
+
+def test_plan_day_orders_by_opening_hours():
+    """The far end of the line closes soon: visit it first instead of last."""
+    from tasteroute.item_extras import parse_hours
+
+    items = pd.DataFrame({"i": range(4), "is_open": 1, "lat": [40.001, 40.002, 40.003, 40.004], "lon": [-75.0] * 4})
+    train = pd.DataFrame({"u": np.repeat(range(10), 4), "i": np.tile(range(4), 10)})
+    filt = CandidateFilter(items, train, seen=train.iloc[:0], min_support=1)
+    hours = {3: parse_hours({"Saturday": "11:0-11:40"})}
+    when = ("Saturday", 11 * 60, 30, hours.get)
+    by_distance = plan_day(np.full(4, 4.0), filt, items, (40.0, -75.0), n=4)
+    plan = plan_day(np.full(4, 4.0), filt, items, (40.0, -75.0), n=4, when=when)
+    assert by_distance["places"] == [0, 1, 2, 3]
+    assert plan["places"][0] == 3 and plan["closed"] == [False] * 4
+    assert plan["distance_order_closed"] == 1 and plan["route_km"] > plan["distance_order_km"]
+    assert plan["begin_min"][0] == plan["arrive_min"][0] >= 11 * 60
+    # hours_order=False: the shortest order, timed the same way (place 3 found closed)
+    timed = plan_day(np.full(4, 4.0), filt, items, (40.0, -75.0), n=4, when=when, hours_order=False)
+    assert timed["places"] == by_distance["places"] and sum(timed["closed"]) == timed["distance_order_closed"] == 1
+
+
+def test_plan_days_uses_each_days_weekday():
+    from tasteroute.item_extras import parse_hours
+    from tasteroute.pipeline import plan_days
+
+    # near cluster (day 1, Saturday) and far cluster (day 2, Sunday); place 5 opens only on Sunday
+    lat = [40.0, 40.001, 40.002, 40.1, 40.101, 40.102]
+    items = pd.DataFrame({"i": range(6), "is_open": 1, "lat": lat, "lon": [-75.0] * 6})
+    train = pd.DataFrame({"u": np.repeat(range(5), 6), "i": np.tile(range(6), 5)})
+    filt = CandidateFilter(items, train, seen=train.iloc[:0], min_support=1)
+    hours = {5: parse_hours({"Sunday": "0:0-0:0"})}
+    plan = plan_days(np.full(6, 4.0), filt, items, (40.0, -75.0), days=2, per_day=3, tau=100,
+                     when=("Saturday", 600, 20, hours.get))
+    day2 = plan["days"][1]
+    assert set(day2["places"]) == {3, 4, 5} and not any(day2["closed"])
