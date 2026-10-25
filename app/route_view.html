@@ -39,6 +39,7 @@
     cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .15s; background: var(--surface); }
   .card:hover { border-color: #f3b49b; transform: translateY(-1px); }
   .card.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-tint); }
+    .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .card.start-card { cursor: default; background: var(--bg); }
   .name { font-size: 14px; font-weight: 600; line-height: 1.3; }
   /* card: name and arrival time on one line (what and when), then status, then facts */
@@ -140,7 +141,7 @@ DATA.days.forEach((day, d) => {
     const last = k === day.stops.length - 1;
     html += `<div class="stop"><div class="rail"></div><div class="leg">🚶 <b>${fmtKm(s.leg_km)}</b> · ${DATA.walking ? `걸어서 ${s.leg_min}분` : `${s.leg_min}분 (직선 기준)`}</div></div>
     <div class="stop"><div class="rail"><div class="badge" style="background:${day.color};color:${day.text}">${k + 1}</div>${last ? "" : '<div class="line"></div>'}</div>
-    <div><div class="card" data-k="${g}">
+    <div><div class="card" data-k="${g}"  tabindex="0" role="button">
       <div class="card-top"><div class="name">${esc(s.name)}</div><span class="time"><span class="time-lab">도착</span> ${s.arrive}</span></div>
       <div class="meta"><span class="chip st-${s.status}">${statusText[s.status]}</span>${s.hours ? `<span>영업 ${esc(s.hours)}</span>` : ""}</div>
       <div class="meta facts"><span><span class="star" aria-hidden="true">★</span><span class="sr">평점</span> ${s.stars.toFixed(1)}</span><span class="dot">·</span>
@@ -211,7 +212,12 @@ function select(k, fly = true) {
   const card = document.querySelector(`.card[data-k="${k}"]`);
   if (card) card.scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
-document.querySelectorAll(".card[data-k]").forEach(c => c.addEventListener("click", () => select(+c.dataset.k)));
+document.querySelectorAll(".card[data-k]").forEach(c => {
+  c.addEventListener("click", () => select(+c.dataset.k));
+  c.addEventListener("keydown", e => {  // Enter or Space selects the card like a click
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(+c.dataset.k); }
+  });
+});
 </script>
 </body>
 </html>
