@@ -1,6 +1,6 @@
 """Evaluation metrics.
 
-Rating error: RMSE, MAE. Ranking metrics are added with the re-ranking stage.
+Rating error: RMSE, MAE. Top-N ranking: Precision, Recall, HitRate, NDCG at K.
 """
 import numpy as np
 
@@ -41,3 +41,49 @@ def evaluate(model, df):
     """
     pred = model.predict(df.u.values, df.i.values)
     return {"rmse": rmse(df.stars.values, pred), "mae": mae(df.stars.values, pred), "n": len(df)}
+
+
+# --- Top-N ranking (one user at a time) -------------------------------------
+# ranked: item ids in recommended order; relevant: set of the user's relevant
+# test items (test rating >= 4). Scores are averaged over users by the caller.
+
+
+def _check_k(k):
+    """Cutoffs must be positive integers (k = 0 would divide by zero)."""
+    if int(k) != k or k < 1:
+        raise ValueError(f"k must be a positive integer, got {k}")
+
+
+def precision_at_k(ranked, relevant, k):
+    """Share of the top-k recommendations that are relevant: |L ∩ Rel| / k."""
+    _check_k(k)
+    return len(set(ranked[:k]) & relevant) / k
+
+
+def recall_at_k(ranked, relevant, k):
+    """Share of the relevant items found in the top k: |L ∩ Rel| / |Rel|."""
+    _check_k(k)
+    return len(set(ranked[:k]) & relevant) / len(relevant) if relevant else 0.0
+
+
+def hit_rate_at_k(ranked, relevant, k):
+    """1 if at least one relevant item is in the top k, else 0."""
+    _check_k(k)
+    return float(bool(set(ranked[:k]) & relevant))
+
+
+def ndcg_at_k(ranked, relevant, k):
+    """Normalized discounted cumulative gain with binary relevance.
+
+    DCG = sum_{pos=1..k} rel_pos / log2(pos + 1); IDCG is the DCG of a list
+    with all relevant items on top (at most k of them). An item repeated in the
+    list earns its gain only at its first position, so NDCG stays in [0, 1].
+    """
+    _check_k(k)
+    seen, dcg = set(), 0.0
+    for pos, item in enumerate(ranked[:k]):
+        if item in relevant and item not in seen:
+            dcg += 1.0 / np.log2(pos + 2)
+        seen.add(item)
+    idcg = sum(1.0 / np.log2(pos + 2) for pos in range(min(len(relevant), k)))
+    return dcg / idcg if idcg > 0 else 0.0
