@@ -28,8 +28,8 @@ import streamlit.components.v1 as components
 from tasteroute.candidates import CandidateFilter
 from tasteroute.data import get_split, load_item_features, load_items, load_ratings, n_users_items
 from tasteroute.geo import haversine, user_anchors
-from tasteroute.item_extras import (DAYS, attribute_matrix, combine_features, hours_today, load_item_extras,
-                                    open_for, open_mask)
+from tasteroute.item_extras import (DAYS, attribute_matrix, combine_features, hours_day_at, hours_today,
+                                    load_item_extras, open_for, open_mask)
 from tasteroute.models.bpr import BPR
 from tasteroute.models.cbf import CBF
 from tasteroute.models.visit import LogisticRegression, VisitFeatures
@@ -349,8 +349,8 @@ with tab_plan:
                 "name": row["name"], "lat": float(row.lat), "lon": float(row.lon), "stars": float(row.stars),
                 "reviews": int(row.review_count), "pred": plan["stars"][i], "rank": rank_of[i], "tags": tags,
                 "leg_km": leg, "leg_min": int(round(leg / WALK_KMH * 60)), "arrive": hhmm(arrive),
-                # hours of the weekday the visit actually falls on (after midnight: the next day)
-                "hours": hours_today(hours, DAYS[(DAYS.index(wd) + int(arrive // 1440)) % 7]) if hours else None,
+                # hours of the opening that covers the arrival (Tue 01:00 in a Mon 17:00-02:00 opening: Monday)
+                "hours": hours_today(hours, hours_day_at(hours, wd, arrive)) if hours else None,
                 "status": status,
                 "why": f"출발지에서 직선 {d0:.1f}km · 리뷰 수 상위 {max(top, 0.1):.1f}%",
             })

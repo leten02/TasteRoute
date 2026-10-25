@@ -178,6 +178,7 @@ def plan_days(pred, filt, items, start, days, per_day=6, roads=None, **kw):
     size = min(per_day, -(-len(chosen) // days))  # ceil: spread few places evenly over the days
     labels, _ = balanced_kmeans(to_km(items.lat.values[chosen], items.lon.values[chosen]), days, size)
     rank = {int(c): r for r, c in enumerate(chosen)}
+    # np.unique(labels): each distinct label (day number) once, in ascending order
     groups = [chosen[labels == g] for g in np.unique(labels)]
     groups.sort(key=lambda g: min(rank[int(c)] for c in g))  # day 1 holds the top recommendation
     out = []

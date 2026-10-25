@@ -79,3 +79,24 @@ def test_stay_ending_at_closing_counts_and_window_search():
     extras = pd.DataFrame({"hours": [{"Monday": (840, 960)}]}, index=[0])  # 14:00-16:00
     assert not open_mask(extras, 1, "Monday", 660, 30)[0]  # closed on arrival at 11:00
     assert open_mask(extras, 1, "Monday", 660, 30, window_minutes=6 * 60)[0]  # visitable later that day
+
+
+def test_closed_gap_during_stay():
+    from tasteroute.item_extras import open_for
+
+    h = {"Monday": (1020, 1450), "Tuesday": (30, 120)}  # Mon 17:00-00:10, Tue 00:30-02:00
+    assert not open_for(h, "Monday", 1430, 60)  # 23:50 for 60 min: closed 00:10-00:30
+    assert open_for(h, "Monday", 1380, 30)  # 23:00-23:29
+    assert open_for(h, "Tuesday", 40, 60)  # 00:40-01:39
+    allday = {"Monday": (0, 1440), "Tuesday": (0, 1440)}
+    assert open_for(allday, "Monday", 1400, 120)  # all-day openings join across midnight
+
+
+def test_hours_day_at_uses_previous_day_after_midnight():
+    from tasteroute.item_extras import hours_day_at
+
+    h = {"Monday": (1020, 1560), "Tuesday": (1020, 1560)}  # 17:00-02:00 both days
+    assert hours_day_at(h, "Tuesday", 60) == "Monday"  # Tue 01:00 is inside Monday's opening
+    assert hours_day_at(h, "Monday", 1500) == "Monday"  # Mon 25:00 = Tue 01:00, still Monday's
+    assert hours_day_at(h, "Tuesday", 1200) == "Tuesday"  # Tue 20:00
+    assert hours_day_at(h, "Wednesday", 600) == "Wednesday"  # no opening covers it
