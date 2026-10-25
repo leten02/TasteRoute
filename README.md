@@ -101,7 +101,7 @@ streamlit run app/dashboard.py
 
 대시보드 화면 구성과 동작은 [docs/Dashboard.md](docs/Dashboard.md)에 정리했다. Yelp 데이터를 읽기 때문에 `localhost`에서만 열리고, 공개 서버에 배포하지 않는다.
 
-실험을 하나씩 돌리려면 `python experiments/<이름>.py` (baseline, mf, item_knn, cbf_hybrid, compare_models, ranking, route, popularity, learned_distance, bpr, cold_start, figures). cold_start는 먼저 `python -m tasteroute.item_extras`가 필요하다.
+실험을 하나씩 돌리려면 `python experiments/<이름>.py` (baseline, mf, item_knn, cbf_hybrid, compare_models, ranking, route, popularity, learned_distance, bpr, cold_start, walking, figures). cold_start는 먼저 `python -m tasteroute.item_extras`, walking은 `python -m tasteroute.roads`가 필요하다.
 
 ## 결과 요약
 
@@ -125,6 +125,8 @@ streamlit run app/dashboard.py
 **RQ2 cold start** (`results/model_compare.json`, `results/cold_start.json`, [설명](docs/Cold_Start.md)): 학습 평점 1/3/5개 사용자에서 CBF·Hybrid는 bias와 0.002 이내. Yelp 가게 속성 42개를 더하고 평점 하나로도 일반화하는 내용 기반 이웃 모델을 써도 같았다. 속성을 쓴 두 모델에서 validation은 내용 정보를 최대한 끄는 설정을 골랐다 (모든 모델이 bias 대비 p ≥ 0.19). 답: 이 데이터에서 내용 정보는 신규 사용자의 별점을 설명하지 못한다.
 
 **RQ3 동선** (N = 6, `results/route.json`): 추천 순서대로 돌면 최적 경로보다 중앙값 26% 길다. NN + 2-opt는 82%의 사용자에서 정확한 최적해(평균 차이 0.9%). Held-Karp는 N = 8에서 약 1ms.
+
+**실제 도보 거리로 다시 재기** (`results/walking.json`, [설명](docs/Walking_Eval.md)): 도심 test 사용자 2,230명을 보행 도로망 거리로 다시 쟀다. 실제 도보는 직선보다 중앙값 1.30배 길다. 도보 거리로 재순위화해도 정확도는 같고(p = 0.61) 목록이 5% 가까워졌으며, 직선으로 최적화한 동선은 65%가 도보로도 최적이고 평균 1.2%만 더 걷는다. 직선거리는 실험용 근사로 충분하고, 실제 길은 화면의 경로와 시간에 필요하다.
 
 **랭킹 개선** (`results/popularity.json`): 예측 별점만으로는 인기순(P@10 0.0094)을 이기지 못한다. 별점에 log 인기도를 섞고(γ = 5) 거리 재순위화를 하면 P@10 0.0102지만, 인기순 + 거리(0.0100)와 사실상 같다. 이 데이터에서 랭킹 신호는 대부분 인기도와 거리에서 나온다.
 
@@ -159,6 +161,7 @@ streamlit run app/dashboard.py
 - [거리 민감도 학습 (로지스틱 회귀)](docs/ML_Learned_Distance.md)
 - [순위 학습 BPR](docs/BPR.md)
 - [가게 속성으로 cold start 다시 보기 (RQ2)](docs/Cold_Start.md)
+- [실제 도보 거리로 RQ1·RQ3 다시 재기](docs/Walking_Eval.md)
 - [대시보드](docs/Dashboard.md)
 - [발표 개요](docs/TasteRoute_Slides_Outline.md)
 - [데이터 분석과 전처리](data_analysis_preprocessing/README.md)
