@@ -94,7 +94,7 @@ st.markdown(f"""
   .step {{ display: flex; align-items: center; gap: 8px; margin: 18px 0 6px; font-size: 14px; font-weight: 700; color: {INK}; }}
   .step .n {{ width: 22px; height: 22px; border-radius: 50%; background: {ACCENT}; color: #fff; font-size: 12px;
               display: grid; place-items: center; flex: none; }}
-  .step-first {{ margin-top: 4px; }}
+  .step-first {{ margin-top: 14px; }}
   .card-title {{ font-weight: 700; font-size: 15px; color: {INK}; margin-bottom: 0; }}
   .card-take {{ color: {MUTED}; font-size: 13px; margin: 2px 0 6px; }}
   table.tr {{ width: 100%; border-collapse: collapse; font-size: 13.5px; background: #fff; }}
@@ -104,6 +104,14 @@ st.markdown(f"""
   table.tr td {{ text-align: right; padding: 8px 10px; border-bottom: 1px solid #f0f1f3; font-variant-numeric: tabular-nums; }}
   table.tr td.best {{ font-weight: 700; background: {ACCENT_TINT}; color: #b8471c; }}
   section[data-testid="stSidebar"] [data-testid="stExpander"] summary {{ font-weight: 600; }}
+  /* the sidebar header only holds the collapse button (no logo): drop the empty logo slot and
+     shrink the band so the panel title starts right below the button (the button moves between
+     left and right with the screen width, so the title is not placed beside it) */
+  [data-testid="stSidebarHeader"] {{ height: 40px; padding-top: 4px; }}
+  [data-testid="stLogoSpacer"] {{ display: none; }}
+  .side-title {{ margin-top: -8px; }}
+  .side-title b {{ display: block; font-size: 17px; font-weight: 700; color: {INK}; line-height: 28px; }}
+  .side-title span {{ display: block; font-size: 12.5px; color: {MUTED}; margin-top: 2px; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -208,6 +216,8 @@ def step(n, title, first=False):
 
 
 with st.sidebar:
+    st.markdown('<div class="side-title"><b>코스 설정</b><span>4단계를 고르면 코스가 바로 바뀌어요</span></div>',
+                unsafe_allow_html=True)
     step(1, "누구를 위한 코스인가요?", first=True)
     user_labels = {"새 방문자 (취향 정보 없음)": None}
     user_labels.update({f"사용자 {u} · 평점 {int(eng['n_train'][u])}개": u for u in eng["examples"]})
