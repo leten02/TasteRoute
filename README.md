@@ -102,7 +102,7 @@ streamlit run app/dashboard.py
 
 대시보드 화면 구성과 동작은 [docs/Dashboard.md](docs/Dashboard.md)에 정리했다. 영업시간 반영(도착 시각과 영업 상태), 여러 날 코스(용량 제한 k-means로 동네 나누기), 다양성 조절(MMR), BPR 순위 방식을 지원한다. Yelp 데이터를 읽기 때문에 `localhost`에서만 열리고, 공개 서버에 배포하지 않는다.
 
-실험을 하나씩 돌리려면 `python experiments/<이름>.py` (baseline, mf, item_knn, cbf_hybrid, compare_models, ranking, route, popularity, learned_distance, bpr, cold_start, walking, figures). cold_start는 먼저 `python -m tasteroute.item_extras`, walking은 `python -m tasteroute.roads`가 필요하다.
+실험을 하나씩 돌리려면 `python experiments/<이름>.py` (baseline, mf, item_knn, cbf_hybrid, compare_models, ranking, route, popularity, learned_distance, bpr, cold_start, walking, hours_route, figures). cold_start와 hours_route는 먼저 `python -m tasteroute.item_extras`, walking은 `python -m tasteroute.roads`가 필요하다.
 
 ## 결과 요약
 
