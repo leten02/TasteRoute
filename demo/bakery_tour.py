@@ -18,6 +18,7 @@ The demo scores places with the CBF model (bias + category taste). It ties
 the hybrid on RMSE (experiments/compare_models.py) and fits in seconds.
 """
 import argparse
+import html
 from pathlib import Path
 
 import folium
@@ -100,10 +101,14 @@ def main():
     for step, i in enumerate(plan["places"], start=1):
         row = items.iloc[i]
         loc = (row.lat, row.lon)
+        # tooltip and popup text is rendered as HTML, so a business name such as
+        # "<script>..." would run in the browser; html.escape(s) turns <, >, & and
+        # quotes into entities (&lt; ...) so the name is shown as plain text
+        name = html.escape(str(row["name"]))
         folium.Marker(
             loc,
-            tooltip=f"{step}. {row['name']}",
-            popup=f"{step}. {row['name']}<br>{row['stars']} stars, {row['review_count']} reviews",
+            tooltip=f"{step}. {name}",
+            popup=f"{step}. {name}<br>{row['stars']} stars, {row['review_count']} reviews",
             icon=folium.DivIcon(html=f'<div style="background:#2a78d6;color:#fff;border-radius:50%;'
                                      f'width:24px;height:24px;line-height:24px;text-align:center;'
                                      f'font:bold 13px sans-serif">{step}</div>'),
