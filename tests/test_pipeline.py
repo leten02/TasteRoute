@@ -64,3 +64,31 @@ def test_plan_day_with_learned_visit_model():
     assert plan["ranked"] == [0, 1, 2] and 3 not in plan["places"]
     assert np.isclose(sum(plan["legs_km"]), plan["route_km"])
     assert len(plan["rec_path"]) == 4
+
+
+def test_plan_days_splits_by_neighborhood():
+    from tasteroute.pipeline import plan_days
+
+    # two clusters of four places, far apart
+    lat = [40.0, 40.001, 40.002, 40.003, 40.1, 40.101, 40.102, 40.103]
+    items = pd.DataFrame({"i": range(8), "is_open": 1, "lat": lat, "lon": [-75.0] * 8})
+    train = pd.DataFrame({"u": np.repeat(range(5), 8), "i": np.tile(range(8), 5)})
+    filt = CandidateFilter(items, train, seen=train.iloc[:0], min_support=1)
+    plan = plan_days(np.full(8, 4.0), filt, items, (40.05, -75.0), days=2, per_day=4, tau=100)
+    days = [set(d["places"]) for d in plan["days"]]
+    assert len(days) == 2 and {frozenset(d) for d in days} == {frozenset(range(4)), frozenset(range(4, 8))}
+
+
+def test_plan_day_diversity_needs_features_and_changes_picks():
+    import pytest
+    from scipy import sparse
+
+    items = pd.DataFrame({"i": range(3), "is_open": 1, "lat": [40.0, 40.0001, 40.0002], "lon": [-75.0] * 3})
+    train = pd.DataFrame({"u": [0, 0, 0, 1, 1, 2], "i": [0, 1, 2, 0, 1, 0]})
+    filt = CandidateFilter(items, train, seen=train.iloc[:0], min_support=1)
+    F = sparse.csr_matrix(np.array([[1.0, 0.0], [1.0, 0.0], [0.0, 1.0]]))
+    plain = plan_day(np.full(3, 4.0), filt, items, (40.0, -75.0), n=2)
+    varied = plan_day(np.full(3, 4.0), filt, items, (40.0, -75.0), n=2, diversity=0.7, features=F)
+    assert set(plain["places"]) == {0, 1} and set(varied["places"]) == {0, 2}
+    with pytest.raises(ValueError):
+        plan_day(np.full(3, 4.0), filt, items, (40.0, -75.0), n=2, diversity=0.5)
