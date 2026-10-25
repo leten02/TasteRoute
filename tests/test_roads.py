@@ -118,3 +118,15 @@ def test_cache_only_raises_without_download(tmp_path):
 
     with pytest.raises(RuntimeError):
         RoadNetwork.download(40.01, 39.99, -74.99, -75.01, cache_dir=tmp_path, tries=0)
+
+
+def test_cache_reads_same_box_legacy_file_and_skips_damaged(tmp_path):
+    import hashlib
+
+    net, lat, lon = _grid()
+    box = (40.01, 39.99, -74.99, -75.01)
+    name = f"walk_{hashlib.md5(str(tuple(round(x, 4) for x in box)).encode()).hexdigest()[:12]}.npz"
+    np.savez_compressed(tmp_path / name, lat=net.lat, lon=net.lon, u=[0], v=[1], length_km=[0.1])  # legacy: no box
+    (tmp_path / "walk_broken.npz").write_bytes(b"not a zip file")
+    got = RoadNetwork.download(*box, cache_dir=tmp_path, tries=0)
+    assert len(got.lat) == len(net.lat)

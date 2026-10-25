@@ -13,6 +13,7 @@ Building a RoadNetwork from arrays needs no download, which is how the tests
 use it.
 """
 import hashlib
+import os
 import time
 from pathlib import Path
 
@@ -64,13 +65,18 @@ class RoadNetwork:
         """
         cache_dir = Path(cache_dir)
         box = tuple(round(x, 4) for x in (north, south, east, west))
-        cached = cls._cached_covering(cache_dir, box)
-        if cached is not None:
-            z = np.load(cached)
-            return cls(z["lat"], z["lon"], z["u"], z["v"], z["length_km"])
+        path = cache_dir / f"walk_{hashlib.md5(str(box).encode()).hexdigest()[:12]}.npz"
+        # same box first (older cache files have no `box` entry), then any covering box
+        for cached in (path if path.exists() else None, cls._cached_covering(cache_dir, box)):
+            if cached is None:
+                continue
+            try:
+                with np.load(cached) as z:
+                    return cls(z["lat"], z["lon"], z["u"], z["v"], z["length_km"])
+            except (OSError, ValueError, KeyError):  # damaged file: ignore it
+                continue
         if tries == 0:
             raise RuntimeError("this area's walking network is not cached")
-        path = cache_dir / f"walk_{hashlib.md5(str(box).encode()).hexdigest()[:12]}.npz"
 
         import osmnx as ox  # optional dependency: pip install -e ".[demo]"
 
@@ -94,7 +100,11 @@ class RoadNetwork:
         edges = np.array([(index[a], index[b], d["length"] / 1000) for a, b, d in G.edges(data=True)])
         u, v, w = edges[:, 0].astype(int), edges[:, 1].astype(int), edges[:, 2]
         cache_dir.mkdir(parents=True, exist_ok=True)
-        np.savez_compressed(path, lat=lat, lon=lon, u=u, v=v, length_km=w, box=np.array(box))
+        # write to a temporary name, then os.replace (atomic rename): an interrupted
+        # save never leaves a half-written walk_*.npz behind
+        tmp = path.with_name(path.stem + ".tmp.npz")
+        np.savez_compressed(tmp, lat=lat, lon=lon, u=u, v=v, length_km=w, box=np.array(box))
+        os.replace(tmp, path)
         return cls(lat, lon, u, v, w)
 
     @staticmethod
@@ -103,10 +113,15 @@ class RoadNetwork:
         north, south, east, west = box
         best = None
         for f in sorted(Path(cache_dir).glob("walk_*.npz")):
-            with np.load(f) as z:  # np.load on .npz reads each array only when accessed
-                if "box" not in z.files:
-                    continue
-                n, s, e, w = z["box"]
+            if f.name.endswith(".tmp.npz"):
+                continue
+            try:
+                with np.load(f) as z:  # np.load on .npz reads each array only when accessed
+                    if "box" not in z.files:
+                        continue
+                    n, s, e, w = z["box"]
+            except (OSError, ValueError):  # damaged file: skip it instead of failing every lookup
+                continue
             if n >= north and s <= south and e >= east and w <= west:
                 area = (n - s) * (e - w)
                 if best is None or area < best[0]:

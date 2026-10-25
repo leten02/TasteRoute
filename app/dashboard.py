@@ -168,7 +168,9 @@ with st.sidebar:
         start = tuple(float(x) for x in eng["anchors"][user])
     elif start_name == "좌표 직접 입력":
         c1, c2 = st.columns(2)
-        start = (c1.number_input("위도", value=39.9526, format="%.4f"), c2.number_input("경도", value=-75.1636, format="%.4f"))
+        # limited to greater Philadelphia: the data covers 15 km around City Hall
+        start = (c1.number_input("위도", value=39.9526, min_value=39.80, max_value=40.10, format="%.4f"),
+                 c2.number_input("경도", value=-75.1636, min_value=-75.40, max_value=-74.90, format="%.4f"))
         start_name = f"{start[0]:.4f}, {start[1]:.4f}"
     else:
         start = STARTS[start_name]
@@ -220,8 +222,8 @@ with tab_plan:
     <div class="tiles">
       <div class="tile"><div class="lab">총 {dist_kind} 거리</div><div class="val">{plan['route_km']:.1f}<small>km</small></div>
         <div class="note">직선으로 재면 {plan['straight_km']:.1f}km</div></div>
-      <div class="tile"><div class="lab">예상 걷는 시간</div><div class="val">{minutes:.0f}<small>분</small></div>
-        <div class="note">시속 {WALK_KMH:g}km 기준, 머무는 시간 제외</div></div>
+      <div class="tile"><div class="lab">{"예상 걷는 시간" if walking else "직선거리 환산 시간"}</div><div class="val">{minutes:.0f}<small>분</small></div>
+        <div class="note">{"" if walking else "실제 길은 약 1.3배 · "}시속 {WALK_KMH:g}km 기준, 머무는 시간 제외</div></div>
       <div class="tile"><div class="lab">방문 장소</div><div class="val">{len(plan['places'])}<small>곳</small></div>
         <div class="note">{CATEGORY_KO[category]} · {"학습 모델" if method == "learned" else f"고정 규칙 τ={tau:g}km"}</div></div>
       <div class="tile accent"><div class="lab">추천 순서보다</div><div class="val">▼ {saved:.1f}<small>km</small></div>
@@ -251,7 +253,9 @@ with tab_plan:
         "path": plan["path"], "rec_path": plan["rec_path"],
         "bounds": [[min(lons), min(lats)], [max(lons), max(lats)]],
     }
-    components.html(VIEW.replace("/*__DATA__*/null", json.dumps(data, ensure_ascii=False)), height=640)
+    # "</" escaped as "<\/" so a place name can never close the <script> holding the data
+    payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+    components.html(VIEW.replace("/*__DATA__*/null", payload), height=640)
 
     with st.expander("이 코스는 어떻게 만들어졌나요?"):
         st.markdown(f"""
