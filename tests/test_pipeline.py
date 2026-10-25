@@ -92,3 +92,14 @@ def test_plan_day_diversity_needs_features_and_changes_picks():
     assert set(plain["places"]) == {0, 1} and set(varied["places"]) == {0, 2}
     with pytest.raises(ValueError):
         plan_day(np.full(3, 4.0), filt, items, (40.0, -75.0), n=2, diversity=0.5)
+
+
+def test_plan_days_allows_more_than_max_places_in_total():
+    from tasteroute.pipeline import MAX_PLACES, plan_days
+
+    k = 3 * 6
+    items = pd.DataFrame({"i": range(k), "is_open": 1, "lat": 40.0 + np.arange(k) * 0.002, "lon": [-75.0] * k})
+    train = pd.DataFrame({"u": np.repeat(range(3), k), "i": np.tile(range(k), 3)})
+    filt = CandidateFilter(items, train, seen=train.iloc[:0], min_support=1)
+    plan = plan_days(np.full(k, 4.0), filt, items, (40.0, -75.0), days=3, per_day=6)
+    assert k > MAX_PLACES and [len(d["places"]) for d in plan["days"]] == [6, 6, 6]

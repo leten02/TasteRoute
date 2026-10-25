@@ -39,8 +39,8 @@ def recommend(pred, filt, items, start, user=None, n=6, mask=None, gamma=GAMMA, 
         diversity: MMR weight in [0, 1); 0 keeps the plain relevance order.
         features: item x feature matrix for MMR similarity (needed if diversity > 0).
     """
-    if not 1 <= n <= MAX_PLACES:
-        raise ValueError(f"n must be between 1 and {MAX_PLACES}, got {n}")
+    if n < 1:
+        raise ValueError(f"n must be at least 1, got {n}")
     score = blend_popularity(np.asarray(pred, dtype=float), filt.popularity, gamma)
     if mask is not None:
         score = np.where(mask, score, -np.inf)
@@ -69,6 +69,8 @@ def route(chosen, items, start, roads=None):
     Returns the plan_day dict (without `ranked`); `chosen` is in recommendation order.
     """
     chosen = np.asarray(chosen, dtype=int)
+    if len(chosen) > MAX_PLACES:
+        raise ValueError(f"at most {MAX_PLACES} places per route, got {len(chosen)}")
     lat, lon = items.lat.values, items.lon.values
     # np.r_[a, b] concatenates a scalar and an array into one 1-D array: the start
     # point becomes node 0, followed by the n chosen places
@@ -141,6 +143,8 @@ def plan_day(pred, filt, items, start, user=None, n=6, mask=None, gamma=GAMMA, t
     would need a much larger network (experiments/walking.py: the accuracy is
     the same either way).
     """
+    if n > MAX_PLACES:
+        raise ValueError(f"n must be between 1 and {MAX_PLACES}, got {n}")
     chosen = recommend(pred, filt, items, start, user, n, mask, gamma, tau, decay, visit, diversity, features)
     return {**route(chosen, items, start, roads), "ranked": [int(c) for c in chosen]}
 
