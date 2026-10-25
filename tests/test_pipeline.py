@@ -103,3 +103,40 @@ def test_plan_days_allows_more_than_max_places_in_total():
     filt = CandidateFilter(items, train, seen=train.iloc[:0], min_support=1)
     plan = plan_days(np.full(k, 4.0), filt, items, (40.0, -75.0), days=3, per_day=6)
     assert k > MAX_PLACES and [len(d["places"]) for d in plan["days"]] == [6, 6, 6]
+
+
+def test_plan_days_spreads_few_places_and_fetches_streets_once():
+    from tasteroute.pipeline import plan_days
+    from tasteroute.roads import RoadNetwork
+
+    lat = [40.0, 40.001, 40.002, 40.1, 40.101, 40.102, 40.2]
+    items = pd.DataFrame({"i": range(7), "is_open": 1, "lat": lat, "lon": [-75.0] * 7})
+    train = pd.DataFrame({"u": np.repeat(range(3), 7), "i": np.tile(range(7), 3)})
+    filt = CandidateFilter(items, train, seen=train.iloc[:0], min_support=1)
+    calls = []
+    grid = RoadNetwork(np.array(lat), np.full(7, -75.0), np.arange(6), np.arange(1, 7), np.full(6, 1.0))
+
+    def streets(lats, lons):
+        calls.append(len(lats))
+        return grid
+
+    plan = plan_days(np.full(7, 4.0), filt, items, (40.0, -75.0), days=3, per_day=6, tau=100, roads=streets)
+    assert len(calls) == 1 and calls[0] == 8  # one network for start + all 7 places
+    assert sorted(len(d["places"]) for d in plan["days"]) == [1, 3, 3]  # cap ceil(7 / 3) = 3, all days used
+
+
+def test_learned_model_with_diversity_and_no_columns():
+    from scipy import sparse
+
+    from tasteroute.geo import user_anchors
+    from tasteroute.models.visit import LogisticRegression, VisitFeatures
+
+    items = pd.DataFrame({"i": range(4), "is_open": 1, "lat": [40.0, 40.001, 40.002, 40.3], "lon": [-75.0] * 4})
+    train = pd.DataFrame({"u": np.repeat(range(5), 4), "i": np.tile(range(4), 5)})
+    filt = CandidateFilter(items, train, seen=train.iloc[:0], min_support=1)
+    feats = VisitFeatures(items, train, user_anchors(train, items, 5), filt.popularity)
+    model = LogisticRegression.from_dict({"lam": 0, "mean": [0] * 5, "std": [1] * 5, "w": [-3.0, 0, 0, 0, 0], "b": 0})
+    F = sparse.csr_matrix(np.eye(4))
+    plan = plan_day(np.full(4, 4.0), filt, items, (40.0, -75.0), n=2, visit=(model, feats, None),
+                    diversity=0.3, features=F)
+    assert len(plan["places"]) == 2 and 3 not in plan["places"]

@@ -22,7 +22,7 @@ from .candidates import blend_popularity, to_unit
 from .geo import distance_matrix, haversine
 from .cluster import balanced_kmeans, to_km
 from .models.visit import rank_learned
-from .rerank import distance_weight, mmr
+from .rerank import mmr, rerank_scores
 from .roads import RoadNetwork
 from .route import held_karp, path_length
 
@@ -48,18 +48,19 @@ def recommend(pred, filt, items, start, user=None, n=6, mask=None, gamma=GAMMA, 
     cand = filt.top_m(-1 if user is None else user, score, m=POOL)
     dist = haversine(start[0], start[1], lat[cand], lon[cand])
     if visit is None:
-        # same score as rerank(): rescaled blend score x distance weight, on 0-1
-        relevance = to_unit(score[cand]) * distance_weight(dist, tau, decay)
+        relevance = rerank_scores(1 + 4 * to_unit(score[cand]), dist, tau, decay)  # as experiments' rerank()
     else:
         model, feats, columns = visit
         X = feats.build(user, cand, np.asarray(pred, dtype=float)[cand], dist=dist)
         if diversity <= 0:
             return rank_learned(model, X, cand, k=n, columns=columns)
-        relevance = to_unit(model.decision_function(X[:, columns]))
+        relevance = model.decision_function(X if columns is None else X[:, columns])
     if diversity > 0:
         if features is None:
             raise ValueError("diversity > 0 needs the item features for similarity")
-        return mmr(cand, relevance, features, diversity, k=n)
+        # MMR weighs relevance against similarity (0-1), so put relevance on 0-1
+        # too; otherwise the same slider value would mean more at small tau
+        return mmr(cand, to_unit(relevance), features, diversity, k=n)
     return cand[np.argsort(-relevance, kind="stable")[:n]]
 
 
@@ -154,17 +155,28 @@ def plan_days(pred, filt, items, start, days, per_day=6, roads=None, **kw):
 
     The places are grouped by map position with k-means capped at per_day
     places per group (cluster.balanced_kmeans, k = days); each group is routed
-    from `start` as one day, the group with the best-ranked place first. kw are passed to recommend (user, mask, visit, diversity, ...).
+    from `start` as one day, the group with the best-ranked place first. With
+    fewer places than days * per_day the cap shrinks to spread them evenly, and
+    a plan can have fewer days than asked for when there are very few places.
+    The street network (roads = "osm" or a function) is fetched once around
+    all chosen places and reused for every day. kw are passed to recommend
+    (user, mask, visit, diversity, ...).
 
     Returns:
         dict with `days` (one route() dict per day, plus its `ranked` ids) and
         `ranked` (all ids in recommendation order).
     """
     chosen = recommend(pred, filt, items, start, n=days * per_day, **kw)
+    if roads is not None and len(chosen) and not isinstance(roads, RoadNetwork):
+        # one network for the whole trip: one download (or cache hit), not one per day
+        lats = np.r_[start[0], items.lat.values[chosen]]
+        lons = np.r_[start[1], items.lon.values[chosen]]
+        roads = RoadNetwork.around(lats, lons) if isinstance(roads, str) else roads(lats, lons)
     if days <= 1 or len(chosen) <= 1:
         return {"days": [{**route(chosen, items, start, roads), "ranked": [int(c) for c in chosen]}],
                 "ranked": [int(c) for c in chosen]}
-    labels, _ = balanced_kmeans(to_km(items.lat.values[chosen], items.lon.values[chosen]), days, per_day)
+    size = min(per_day, -(-len(chosen) // days))  # ceil: spread few places evenly over the days
+    labels, _ = balanced_kmeans(to_km(items.lat.values[chosen], items.lon.values[chosen]), days, size)
     rank = {int(c): r for r, c in enumerate(chosen)}
     groups = [chosen[labels == g] for g in np.unique(labels)]
     groups.sort(key=lambda g: min(rank[int(c)] for c in g))  # day 1 holds the top recommendation

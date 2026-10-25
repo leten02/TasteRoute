@@ -31,6 +31,15 @@ def distance_weight(d, tau, decay="exp"):
     raise ValueError(f"decay must be one of {DECAYS}")
 
 
+def rerank_scores(pred, dist, tau, decay="exp"):
+    """Re-rank score (r_hat - 1) / 4 * w(d) for each candidate (0-1 when r_hat is 1-5).
+
+    The one formula behind rerank() and pipeline.recommend(), so experiments
+    and the app always rank the same way.
+    """
+    return (np.asarray(pred, dtype=float) - 1.0) / 4.0 * distance_weight(dist, tau, decay)
+
+
 def rerank(candidates, pred, dist, tau, decay="exp", k=10):
     """Re-order candidates by rescaled rating x distance weight; return the top k.
 
@@ -39,7 +48,7 @@ def rerank(candidates, pred, dist, tau, decay="exp", k=10):
         pred: predicted ratings of those candidates (same order).
         dist: distance (km) from the user's anchor to each candidate.
     """
-    score = (np.asarray(pred) - 1.0) / 4.0 * distance_weight(dist, tau, decay)
+    score = rerank_scores(pred, dist, tau, decay)
     order = np.argsort(-score, kind="stable")[:k]
     return np.asarray(candidates)[order]
 
