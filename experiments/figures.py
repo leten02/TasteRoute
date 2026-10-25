@@ -305,10 +305,33 @@ def l2_distance_curve():
            f"(median user {m['median_radius_km']:.1f} km)")
     save(fig, "L2_learned_distance_curve")
 
+def b1_bpr_activity():
+    """B1: BPR vs popularity NDCG@10 by how many training ratings a user has."""
+    d = load("bpr")
+    rows = d["by_activity"]
+    x = np.arange(len(rows))
+    fig, ax = plt.subplots(figsize=(8, 4.2))
+    w = 0.36
+    ax.bar(x - w / 2, [r["Popularity"] for r in rows], w, color=GRID)
+    ax.bar(x + w / 2, [r["BPR"] for r in rows], w, color=ORANGE)
+    for k, r in enumerate(rows):
+        ax.text(k - w / 2, r["Popularity"] + 0.0006, f"{r['Popularity']:.4f}", ha="center", fontsize=9, color=INK2)
+        ax.text(k + w / 2, r["BPR"] + 0.0006, f"{r['BPR']:.4f}", ha="center", fontsize=9, color=INK)
+    ax.set_xticks(x, [f"{r['train_ratings']} ratings · {r['users']:,} users\np = {r['p']:.2f}" for r in rows])
+    ax.set_ylim(0, max(max(r["BPR"], r["Popularity"]) for r in rows) * 1.2)
+    ax.set_ylabel("NDCG@10")
+    ax.text(len(rows) - 0.55, ax.get_ylim()[1] * 0.97, "grey popularity · orange BPR", ha="right", va="top",
+            fontsize=9, color=INK2)
+    titled(fig, "No overall gain over popularity; BPR is ahead only for active users",
+           f"Overall BPR {d['test']['BPR']['NDCG@10']:.4f} vs popularity {d['test']['Popularity']['NDCG@10']:.4f} "
+           f"(p = {d['paired']['BPR vs Popularity']['p']:.2f}) · subgroup p not corrected for 3 tests · 3,000 test users")
+    save(fig, "B1_bpr_by_activity")
+
+
 def main():
     """Run this step and write its output (see the module docstring)."""
     for f in (v1_rmse, v5_cold, m1_knn, m3_mf_curve, m4_mf_grid, m5_blend, r2_pareto, t2_timing, t3_gap,
-              d1_popularity, l1_learned, l2_distance_curve):
+              d1_popularity, l1_learned, l2_distance_curve, b1_bpr_activity):
         f()
 
 
