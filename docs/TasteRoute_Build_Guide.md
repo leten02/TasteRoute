@@ -284,7 +284,7 @@ $$\alpha(n_u) = \frac{n_u}{n_u+\kappa}$$
 3. **신뢰구간 (bootstrap):** 사용자 단위로 1,000번 복원 추출해 RMSE를 다시 계산하고, 2.5%~97.5% 분위수를 구간으로 씁니다. 평점 단위가 아니라 **사용자 단위**로 뽑는 게 포인트입니다.
 4. cold-start: m=1, 3, 5 그룹별로 `split=="test"` 이면서 `cold_m==m`인 평점에서 RMSE (그림 V5). 비교 대상은 bias, CF, CBF, Hybrid.
 
-**통과 기준:** Bias, MF, CBF, Hybrid가 1.051~1.052로 거의 같고, kNN 1.142, 전체 평균(Global mean) 1.190. 6개 모델 모두 bias 대비 paired t-test p값을 기록한다.
+**통과 기준:** Bias, MF, CBF, Hybrid가 1.051~1.052로 거의 같고, kNN 1.142, 전체 평균(Global mean) 1.190. Bias를 제외한 5개 모델이 bias 대비 paired t-test p값을 기록한다 (Bias 자신은 비교 대상이 아니라 없음).
 
 ---
 
