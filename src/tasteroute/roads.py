@@ -15,6 +15,8 @@ use it.
 import hashlib
 import os
 import time
+import zipfile
+import zlib
 from pathlib import Path
 
 import numpy as np
@@ -29,6 +31,9 @@ WALK_KMH = 4.5
 DOWNLOAD_TRIES = 3
 REQUEST_TIMEOUT = 180  # seconds per Overpass request
 # Center City Philadelphia plus University City and Fishtown edges: (north, south, east, west)
+# errors np.load can raise on a damaged .npz cache: a truncated or garbled zip
+# (zipfile.BadZipFile, EOFError, zlib.error) or a missing array (KeyError)
+DAMAGED_CACHE_ERRORS = (OSError, ValueError, KeyError, EOFError, zipfile.BadZipFile, zlib.error)
 CENTER_CITY_BOX = (39.978, 39.928, -75.128, -75.205)
 
 
@@ -72,7 +77,7 @@ class RoadNetwork:
             try:
                 with np.load(cached) as z:
                     return cls(z["lat"], z["lon"], z["u"], z["v"], z["length_km"])
-            except (OSError, ValueError, KeyError):  # damaged file: ignore it
+            except DAMAGED_CACHE_ERRORS:  # damaged file: try the next one
                 continue
         if tries == 0:
             raise RuntimeError("this area's walking network is not cached")
@@ -123,7 +128,7 @@ class RoadNetwork:
                     if "box" not in z.files:
                         continue
                     n, s, e, w = z["box"]
-            except (OSError, ValueError):  # damaged file: skip it instead of failing every lookup
+            except DAMAGED_CACHE_ERRORS:  # damaged file: skip it instead of failing every lookup               
                 continue
             if n >= north and s <= south and e >= east and w <= west:
                 found.append(((n - s) * (e - w), f))

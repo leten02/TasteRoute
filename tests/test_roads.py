@@ -125,7 +125,21 @@ def test_damaged_smallest_cache_falls_back_to_larger(tmp_path):
     got = RoadNetwork.download(40.005, 39.995, -74.995, -75.005, cache_dir=tmp_path, tries=0)
     assert len(got.lat) == len(net.lat)
 
-    
+
+def test_truncated_zip_cache_falls_back_to_next(tmp_path):
+    net, lat, lon = _grid()
+    small = (40.006, 39.994, -74.994, -75.006)
+    big = (40.01, 39.99, -74.99, -75.01)
+    np.savez_compressed(tmp_path / "walk_small.npz", lat=net.lat, lon=net.lon, u=[0], v=[1], length_km=[0.1],
+                        box=np.array(small))
+    data = (tmp_path / "walk_small.npz").read_bytes()
+    (tmp_path / "walk_small.npz").write_bytes(data[: len(data) // 2])  # cut in half: zipfile.BadZipFile on load
+    np.savez_compressed(tmp_path / "walk_big.npz", lat=net.lat, lon=net.lon, u=[0], v=[1], length_km=[0.1],
+                        box=np.array(big))
+    got = RoadNetwork.download(40.005, 39.995, -74.995, -75.005, cache_dir=tmp_path, tries=0)
+    assert len(got.lat) == len(net.lat)
+
+
 def test_cache_only_raises_without_download(tmp_path):
     import pytest
 
