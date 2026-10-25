@@ -51,6 +51,9 @@ def main():
     if args.user is not None:
         pred = model.score_all(args.user)
         start = tuple(user_anchors(train, items, n_users)[args.user])
+        if not np.all(np.isfinite(start)):  # user without training ratings has no anchor
+            print(f"user {args.user} has no training ratings; starting at City Hall")
+            start = CITY_HALL
     else:
         # a new visitor has no user bias or taste vector: mu + b_i only
         pred = np.clip(model.bias.mu + model.bias.b_i, 1, 5)

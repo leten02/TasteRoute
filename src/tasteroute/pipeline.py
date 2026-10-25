@@ -14,6 +14,7 @@ from .rerank import rerank
 from .route import held_karp, path_length
 
 GAMMA, TAU, DECAY = 5.0, 2.0, "exp"
+MAX_PLACES = 12  # Held-Karp is O(n^2 2^n): 12 places take well under a second
 
 
 def plan_day(pred, filt, items, start, user=None, n=6, mask=None, gamma=GAMMA, tau=TAU, decay=DECAY):
@@ -32,6 +33,8 @@ def plan_day(pred, filt, items, start, user=None, n=6, mask=None, gamma=GAMMA, t
         dict with the places in visiting order (ids), the route length, and the
         length if the same places were visited in recommendation order.
     """
+    if not 1 <= n <= MAX_PLACES:
+        raise ValueError(f"n must be between 1 and {MAX_PLACES}, got {n}")
     score = blend_popularity(np.asarray(pred, dtype=float), filt.popularity, gamma)
     if mask is not None:
         score = np.where(mask, score, -np.inf)
