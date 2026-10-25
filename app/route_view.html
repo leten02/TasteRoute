@@ -76,6 +76,8 @@
   .dayhead { display: flex; align-items: center; gap: 8px; margin: 6px 0 10px; font-size: 13px; font-weight: 700; }
   .dayhead .dot { width: 10px; height: 10px; border-radius: 50%; }
   .dayhead span.sub { font-weight: 500; color: var(--muted); }
+  .time-lab { font-family: Inter, sans-serif; color: var(--muted); margin-right: 2px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .time { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; color: var(--ink); font-weight: 500; }
   .st-open { background: #e3f6ee; color: #12795a; }
   .st-closed { background: #fde8e8; color: #b42318; }
@@ -137,11 +139,11 @@ DATA.days.forEach((day, d) => {
     flat.push({ ...s, day: d, k });
     const last = k === day.stops.length - 1;
     html += `<div class="stop"><div class="rail"></div><div class="leg">🚶 <b>${fmtKm(s.leg_km)}</b> · ${DATA.walking ? `걸어서 ${s.leg_min}분` : `${s.leg_min}분 (직선 기준)`}</div></div>
-    <div class="stop"><div class="rail"><div class="badge" style="background:${day.color}">${k + 1}</div>${last ? "" : '<div class="line"></div>'}</div>
+    <div class="stop"><div class="rail"><div class="badge" style="background:${day.color};color:${day.text}">${k + 1}</div>${last ? "" : '<div class="line"></div>'}</div>
     <div><div class="card" data-k="${g}">
-      <div class="card-top"><div class="name">${esc(s.name)}</div><span class="time" title="도착 예정 시각">${s.arrive}</span></div>
+      <div class="card-top"><div class="name">${esc(s.name)}</div><span class="time"><span class="time-lab">도착</span> ${s.arrive}</span></div>
       <div class="meta"><span class="chip st-${s.status}">${statusText[s.status]}</span>${s.hours ? `<span>영업 ${esc(s.hours)}</span>` : ""}</div>
-      <div class="meta facts"><span><span class="star" aria-hidden="true">★</span> ${s.stars.toFixed(1)}</span><span class="dot">·</span>
+      <div class="meta facts"><span><span class="star" aria-hidden="true">★</span><span class="sr">평점</span> ${s.stars.toFixed(1)}</span><span class="dot">·</span>
         <span>리뷰 ${s.reviews.toLocaleString()}</span><span class="dot">·</span><span>예상 <b>★${s.pred.toFixed(2)}</b></span>
         <span class="dot">·</span><span>추천 ${s.rank}위</span></div>
       <div class="meta">${s.tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>
@@ -180,9 +182,9 @@ document.getElementById("t-rec").addEventListener("change", e => {
   recLines.forEach(l => { if (e.target.checked) l.addTo(map).bringToBack(); else l.remove(); });
 });
 
-const icon = (text, cls, size, color, dx = 0) => L.divIcon({ className: "", iconSize: [size, size],
+const icon = (text, cls, size, color, dx = 0, ink = "#fff") => L.divIcon({ className: "", iconSize: [size, size],
   iconAnchor: [size / 2 - dx, size / 2], popupAnchor: [dx, -size / 2],
-  html: `<div class="marker ${cls}"${color ? ` style="background:${color}"` : ""}>${text}</div>` });
+  html: `<div class="marker ${cls}"${color ? ` style="background:${color};color:${ink}"` : ""}>${text}</div>` });
 // places in the same building (e.g. stalls inside Reading Terminal Market) would hide
 // each other's pins: shift each later pin sideways by its number of near-duplicates
 const near = (a, b) => Math.hypot(a.lat - b.lat, (a.lon - b.lon) * 0.77) < 0.0003;  // about 30 m
@@ -191,7 +193,7 @@ L.marker([DATA.start.lat, DATA.start.lon], { icon: icon("⌂", "start", 34), zIn
   .bindPopup(`<b>${esc(DATA.start.name)}</b><br><span style="color:#6b7280">출발</span>`).addTo(map);
 
 const markers = flat.map((s, g) => {
-  const m = L.marker([s.lat, s.lon], { icon: icon(s.k + 1, "", 30, DATA.days[s.day].color, shift[g]), riseOnHover: true })
+  const m = L.marker([s.lat, s.lon], { icon: icon(s.k + 1, "", 30, DATA.days[s.day].color, shift[g], DATA.days[s.day].text), riseOnHover: true })
     .bindPopup(`<b>${s.k + 1}. ${esc(s.name)}</b><br><span style="color:#6b7280">도착 ${s.arrive} · ★ ${s.stars.toFixed(1)} · 예상 ★${s.pred.toFixed(2)}</span>`)
     .addTo(map);
   m.on("click", () => select(g, false));

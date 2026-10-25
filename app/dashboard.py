@@ -98,7 +98,7 @@ st.markdown(f"""
   }}
   /* sidebar: numbered steps (one question per step, advanced options folded) */
   .step {{ display: flex; align-items: center; gap: 8px; margin: 18px 0 6px; font-size: 14px; font-weight: 700; color: {INK}; }}
-  .step .n {{ width: 22px; height: 22px; border-radius: 50%; background: {ACCENT}; color: #fff; font-size: 12px;
+  .step .n {{ width: 22px; height: 22px; border-radius: 50%; background: {ACCENT}; color: {INK}; font-size: 12px;
               display: grid; place-items: center; flex: none; }}
   .step-first {{ margin-top: 14px; }}
   .card-title {{ font-weight: 700; font-size: 15px; color: {INK}; margin-bottom: 0; }}
@@ -220,7 +220,9 @@ DAYS_KO = dict(zip(DAYS, ["월", "화", "수", "목", "금", "토", "일"]))
 
 def step(n, title, first=False):
     """Numbered sidebar step header (H.Dot-style stepped setup: one question per step)."""
-    st.markdown(f'<div class="step{" step-first" if first else ""}"><span class="n">{n}</span>{title}</div>',
+    # role="heading" keeps the four steps in screen-reader heading navigation without Streamlit's h3 styling
+    st.markdown(f'<div class="step{" step-first" if first else ""}" role="heading" aria-level="3">'
+                f'<span class="n" aria-hidden="true">{n}</span>{title}</div>',
                 unsafe_allow_html=True)
 
 
@@ -281,6 +283,8 @@ with st.sidebar:
 
 # ---------------------------------------------------------------- tab 1: plan
 DAY_COLORS = ["#eb6834", "#2a78d6", "#1baf7a"]
+# number text on each day color: whichever of ink / white contrasts more (4.85, 4.42, 5.51 : 1)
+DAY_TEXT = ["#1f2430", "#ffffff", "#1f2430"]
 
 
 def hm(minutes, unit=True):
@@ -351,7 +355,7 @@ with tab_plan:
                 "why": f"출발지에서 직선 {d0:.1f}km · 리뷰 수 상위 {max(top, 0.1):.1f}%",
             })
         view_days.append({"label": f"{d + 1}일차 · {DAYS_KO[wd]}요일" if len(plan["days"]) > 1 else f"{DAYS_KO[wd]}요일",
-                          "color": DAY_COLORS[d % 3], "stops": stops, "path": day["path"], "rec_path": day["rec_path"],
+                          "color": DAY_COLORS[d % 3], "text": DAY_TEXT[d % 3], "stops": stops, "path": day["path"], "rec_path": day["rec_path"],
                           "end": hhmm(t), "km": day["route_km"]})
 
     total_km = sum(x["route_km"] for x in plan["days"])
