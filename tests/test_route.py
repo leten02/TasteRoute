@@ -105,3 +105,17 @@ def test_schedule_waits_for_opening():
     D = np.array([[0, 1], [1, 0]], dtype=float)
     arrive, begin, closed = schedule(D, [1], 600, 15, 30, lambda j, t: max(t, 660))
     assert arrive == [615] and begin == [660] and closed == [False]
+
+
+def test_hours_order_small_cases():
+    stay, per_km = 30, 15
+    assert held_karp_hours(np.zeros((1, 1)), 600, per_km, stay, lambda j, t: t) == ([], 0)
+    D1 = np.array([[0, 1], [1, 0]], dtype=float)
+    assert held_karp_hours(D1, 600, per_km, stay, lambda j, t: t) == ([1], 0)        # open
+    assert held_karp_hours(D1, 600, per_km, stay, lambda j, t: None) == ([1], 1)     # never fits
+    # two places: place 2 closes at 11:10 (first: 10:30-11:00 fits; second: 11:00-11:30 does not)
+    D2 = np.array([[0, 1, 2], [1, 0, 1], [2, 1, 0]], dtype=float)
+
+    def earliest(j, t):
+        return t if j == 1 or t + stay <= 670 else None
+    assert held_karp_hours(D2, 600, per_km, stay, earliest) == ([2, 1], 0)
