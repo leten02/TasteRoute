@@ -33,6 +33,7 @@ class CandidateFilter:
         """Indices of the m highest-scoring eligible, unseen places, best first."""
         s = np.where(self.eligible, scores, -np.inf)
         s[self.seen.get(u, [])] = -np.inf
+        m = min(m, len(s))
         top = np.argpartition(-s, m - 1)[:m]
         top = top[np.argsort(-s[top], kind="stable")]
         return top[np.isfinite(s[top])]
