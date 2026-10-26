@@ -82,7 +82,7 @@ class WalkingScopeTests(unittest.TestCase):
                                  [MID_LON, MID_LON, np.nan]),
             [False, False, False])
 
-    def test_main_filters_validation_test_users_and_candidate_places(self):
+    def fixture(self):
         # Six places in the city, one north of it; all seven pass CandidateFilter.
         item_lat = np.array([MID_LAT + x for x in (-0.004, -0.002, 0.0, 0.002, 0.004, 0.006)]
                             + [NORTH + 0.02])
@@ -106,6 +106,9 @@ class WalkingScopeTests(unittest.TestCase):
         net = RoadNetwork(lat, lon, u, v, haversine(lat[u], lon[u], lat[v], lon[v]))
         distances = Mock(wraps=net.distances_from)
         net.distances_from = distances
+        return ctx, val, net, model, distances
+
+    def run_main(self, ctx, val, net):
         with tempfile.TemporaryDirectory() as tmp, \
                 patch.object(walking, "ROOT", Path(tmp)), \
                 patch.object(walking, "setup", return_value=ctx), \
@@ -115,6 +118,11 @@ class WalkingScopeTests(unittest.TestCase):
                 redirect_stdout(io.StringIO()):
             walking.main()
             result = json.loads((Path(tmp) / "results" / "walking.json").read_text())
+        return result
+
+    def test_main_filters_validation_test_users_and_candidate_places(self):
+        ctx, val, net, model, distances = self.fixture()
+        result = self.run_main(ctx, val, net)
         self.assertEqual(result["n_val_users"], 2)
         self.assertEqual(result["n_test_users"], 2)
         self.assertEqual({r["u"] for r in result["rq3"]["per_user"]}, {0, 3})
@@ -123,6 +131,36 @@ class WalkingScopeTests(unittest.TestCase):
         for call in distances.call_args_list:
             self.assertEqual(len(call.args[2]), 6)
             self.assertTrue(np.all(call.args[2] <= NORTH))
+
+    def test_relevance_uses_city_scope_and_skips_users_with_no_in_scope_relevant_place(self):
+        ctx, val, net, model, _ = self.fixture()
+        # User 0 has an in-scope and an out-of-scope relevant place. User 3 has only the latter.
+        val = pd.concat([val.assign(i=6), val.iloc[[0]].assign(i=0)], ignore_index=True)
+        ctx["relevant"] = [{0, 6}, {1}, {2}, {6}]
+        with patch.object(walking, "ndcg_at_k", wraps=walking.ndcg_at_k) as ndcg, \
+                patch.object(walking, "precision_at_k", wraps=walking.precision_at_k) as precision:
+            result = self.run_main(ctx, val, net)
+        self.assertEqual(result["n_val_users"], 1)
+        self.assertEqual(result["n_test_users"], 1)
+        self.assertEqual({r["u"] for r in result["rq3"]["per_user"]}, {0})
+        self.assertEqual({call.args[0] for call in model.score_all.call_args_list}, {0})
+        for metric in (ndcg, precision):
+            self.assertTrue(metric.called)
+            self.assertTrue(all(call.args[1] == {0} for call in metric.call_args_list))
+
+    def test_no_validation_anchors_in_scope_stops_before_candidate_scoring(self):
+        ctx, val, net, model, distances = self.fixture()
+        with self.assertRaisesRegex(RuntimeError, "no validation users"):
+            self.run_main(ctx, val[val.u.isin([1, 2])], net)
+        model.score_all.assert_not_called()
+        distances.assert_not_called()
+
+    def test_no_in_scope_validation_relevance_stops_before_candidate_scoring(self):
+        ctx, val, net, model, distances = self.fixture()
+        with self.assertRaisesRegex(RuntimeError, "no validation users"):
+            self.run_main(ctx, val.assign(i=6), net)
+        model.score_all.assert_not_called()
+        distances.assert_not_called()
 
 
 if __name__ == "__main__":
