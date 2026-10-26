@@ -18,6 +18,7 @@ The demo scores places with the CBF model (bias + category taste). It ties
 the hybrid on RMSE (experiments/compare_models.py) and fits in seconds.
 """
 import argparse
+import html
 from pathlib import Path
 
 import folium
@@ -45,10 +46,16 @@ def main():
     ap.add_argument("--category", default="Bakeries", help="Yelp category to tour")
     ap.add_argument("--straight", action="store_true", help="straight-line routing (no OpenStreetMap download)")
     args = ap.parse_args()
+    # a start point needs both coordinates; one alone would be silently ignored
+    if (args.lat is None) != (args.lon is None):
+        ap.error("--lat and --lon must be given together")
 
     r = load_ratings()
     items = load_items()
     n_users, n_items = n_users_items(r)
+    # a negative id would index from the end of the arrays and pick the last users
+    if args.user is not None and not 0 <= args.user < n_users:
+        ap.error(f"--user must be between 0 and {n_users - 1}, got {args.user}")
     X, _ = load_item_features()
     train = get_split(r, "train")
     model = CBF(n_users, n_items, X, lam=30).fit(train)
@@ -94,10 +101,17 @@ def main():
     for step, i in enumerate(plan["places"], start=1):
         row = items.iloc[i]
         loc = (row.lat, row.lon)
+        # tooltip and popup text is rendered as HTML, so a business name such as
+        # "<script>..." would run in the browser; html.escape(s) turns <, >, & and
+        # quotes into entities (&lt; ...) so the name is shown as plain text.
+        # folium also places this text inside a JavaScript template literal
+        # (`...`), where a backtick or "${...}" would end the string or run code,
+        # so ` and $ become the entities &#96; and &#36; (still shown as ` and $)
+        name = html.escape(str(row["name"])).replace("`", "&#96;").replace("$", "&#36;")
         folium.Marker(
             loc,
-            tooltip=f"{step}. {row['name']}",
-            popup=f"{step}. {row['name']}<br>{row['stars']} stars, {row['review_count']} reviews",
+            tooltip=f"{step}. {name}",
+            popup=f"{step}. {name}<br>{row['stars']} stars, {row['review_count']} reviews",
             icon=folium.DivIcon(html=f'<div style="background:#2a78d6;color:#fff;border-radius:50%;'
                                      f'width:24px;height:24px;line-height:24px;text-align:center;'
                                      f'font:bold 13px sans-serif">{step}</div>'),

@@ -49,6 +49,7 @@ def kmeans(X, k, n_init=10, max_iter=100, seed=42):
     """
     X = np.asarray(X, dtype=float)
     k = min(k, len(X))
+    # np.random.default_rng(seed): random number generator; the same seed picks the same initial centers, so the clusters are reproducible
     rng = np.random.default_rng(seed)
     best = None
     for _ in range(n_init):

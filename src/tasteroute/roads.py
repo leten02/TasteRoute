@@ -15,6 +15,8 @@ use it.
 import hashlib
 import os
 import time
+import zipfile
+import zlib
 from pathlib import Path
 
 import numpy as np
@@ -29,6 +31,9 @@ WALK_KMH = 4.5
 DOWNLOAD_TRIES = 3
 REQUEST_TIMEOUT = 180  # seconds per Overpass request
 # Center City Philadelphia plus University City and Fishtown edges: (north, south, east, west)
+# errors np.load can raise on a damaged .npz cache: a truncated or garbled zip
+# (zipfile.BadZipFile, EOFError, zlib.error) or a missing array (KeyError)
+DAMAGED_CACHE_ERRORS = (OSError, ValueError, KeyError, EOFError, zipfile.BadZipFile, zlib.error)
 CENTER_CITY_BOX = (39.978, 39.928, -75.128, -75.205)
 
 
@@ -67,13 +72,12 @@ class RoadNetwork:
         box = tuple(round(x, 4) for x in (north, south, east, west))
         path = cache_dir / f"walk_{hashlib.md5(str(box).encode()).hexdigest()[:12]}.npz"
         # same box first (older cache files have no `box` entry), then any covering box
-        for cached in (path if path.exists() else None, cls._cached_covering(cache_dir, box)):
-            if cached is None:
-                continue
+        candidates = ([path] if path.exists() else []) + cls._cached_covering(cache_dir, box)
+        for cached in candidates:
             try:
                 with np.load(cached) as z:
                     return cls(z["lat"], z["lon"], z["u"], z["v"], z["length_km"])
-            except (OSError, ValueError, KeyError):  # damaged file: ignore it
+            except DAMAGED_CACHE_ERRORS:  # damaged file: try the next one
                 continue
         if tries == 0:
             raise RuntimeError("this area's walking network is not cached")
@@ -109,9 +113,13 @@ class RoadNetwork:
 
     @staticmethod
     def _cached_covering(cache_dir, box):
-        """Smallest cached network file whose box contains `box`, or None."""
+        """Cached network files whose box contains `box`, smallest area first (empty list if none).
+
+        All covering files are returned so that, if the smallest one is damaged,
+        the caller can fall back to the next one.
+        """
         north, south, east, west = box
-        best = None
+        found = []
         for f in sorted(Path(cache_dir).glob("walk_*.npz")):
             if f.name.endswith(".tmp.npz"):
                 continue
@@ -120,13 +128,11 @@ class RoadNetwork:
                     if "box" not in z.files:
                         continue
                     n, s, e, w = z["box"]
-            except (OSError, ValueError):  # damaged file: skip it instead of failing every lookup
+            except DAMAGED_CACHE_ERRORS:  # damaged file: skip it instead of failing every lookup               
                 continue
             if n >= north and s <= south and e >= east and w <= west:
-                area = (n - s) * (e - w)
-                if best is None or area < best[0]:
-                    best = (area, f)
-        return None if best is None else best[1]
+                found.append(((n - s) * (e - w), f))
+        return [f for _, f in sorted(found)]
 
     @classmethod
     def around(cls, lats, lons, margin_km=0.5, cache_dir=CACHE_DIR, **download_kw):

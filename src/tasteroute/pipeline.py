@@ -12,7 +12,8 @@ experiments/ranking.py, experiments/route.py):
     3. keep the top n (optionally trading relevance for variety with MMR) and
        order them with Held-Karp from the start point, on walking distances
        along streets when a road network is given (roads.py) or on
-       straight-line distances otherwise
+       straight-line distances otherwise; with opening hours (`when`) the
+       order first avoids arriving while a place is closed (route.held_karp_hours)
 For several days, plan_days groups the recommended places into neighborhoods
 with k-means (cluster.py) and routes each group as one day.
 """
@@ -21,10 +22,11 @@ import numpy as np
 from .candidates import blend_popularity, to_unit
 from .geo import distance_matrix, haversine
 from .cluster import balanced_kmeans, to_km
+from .item_extras import DAYS, earliest_start
 from .models.visit import rank_learned
 from .rerank import mmr, rerank_scores
-from .roads import RoadNetwork
-from .route import held_karp, path_length
+from .roads import WALK_KMH, RoadNetwork
+from .route import held_karp, held_karp_hours, path_length, schedule
 
 GAMMA, TAU, DECAY = 5.0, 2.0, "exp"
 MAX_PLACES = 12  # Held-Karp is O(n^2 2^n): 12 places take well under a second
@@ -64,8 +66,16 @@ def recommend(pred, filt, items, start, user=None, n=6, mask=None, gamma=GAMMA, 
     return cand[np.argsort(-relevance, kind="stable")[:n]]
 
 
-def route(chosen, items, start, roads=None):
+def route(chosen, items, start, roads=None, when=None, hours_order=True):
     """Step 3: the shortest visiting order of `chosen` from `start`.
+
+    when: None to order by distance only, or (weekday, start minute, stay
+        minutes, hours_of) to order by opening hours first: fewest visits that
+        find the place closed, then the earliest finish (waiting counts when a
+        place is not open yet). hours_of(item id) gives the parsed hours dict
+        (item_extras.parse_hours) or None when unknown.
+    hours_order: with `when`, False keeps the shortest order and only times it
+        (arrivals, waits, closures), e.g. to show what distance alone gives.
 
     Returns the plan_day dict (without `ranked`); `chosen` is in recommendation order.
     """
@@ -90,6 +100,27 @@ def route(chosen, items, start, roads=None):
 
     order, length = held_karp(D)
     rec = list(range(1, len(chosen) + 1))
+    timing = {}
+    if when is not None:
+        day, start_min, stay, hours_of = when
+        hours = [None, *(hours_of(int(c)) for c in chosen)]  # by node: 0 is the start
+
+        def earliest(j, t):
+            return earliest_start(hours[j], day, t, stay)
+
+        per_km = 60 / WALK_KMH  # minutes per km of walking
+        # the distance-only order, kept for comparison (closures and waits it would cause)
+        d_arrive, d_begin, d_closed = schedule(D, order, start_min, per_km, stay, earliest)
+        distance = {"distance_order_closed": int(sum(d_closed)), "distance_order_km": length,
+                    "distance_order_wait_min": float(sum(d_begin) - sum(d_arrive)),
+                    "distance_order_end_min": d_begin[-1] + stay if order else start_min}
+        if hours_order:
+            order, _ = held_karp_hours(D, start_min, per_km, stay, earliest)
+            length = path_length(D, order)
+        arrive, begin, closed = schedule(D, order, start_min, per_km, stay, earliest)
+        timing = {"arrive_min": arrive, "begin_min": begin, "closed": closed,
+                  "wait_min": float(sum(begin) - sum(arrive)),
+                  "end_min": begin[-1] + stay if order else start_min, **distance}
 
     def draw(o):
         return [(pts_lat[k], pts_lon[k]) for k in [0, *o]] if routes is None else routes.tour_path(o)
@@ -103,11 +134,12 @@ def route(chosen, items, start, roads=None):
         "legs_km": [float(D[a, b]) for a, b in zip(stops[:-1], stops[1:])],
         "path": draw(order),
         "rec_path": draw(rec),
+        **timing,
     }
 
 
 def plan_day(pred, filt, items, start, user=None, n=6, mask=None, gamma=GAMMA, tau=TAU, decay=DECAY, roads=None,
-             visit=None, diversity=0.0, features=None):
+             visit=None, diversity=0.0, features=None, when=None, hours_order=True):
     """Recommend n places near `start` and the shortest order to visit them.
 
     Args:
@@ -127,6 +159,9 @@ def plan_day(pred, filt, items, start, user=None, n=6, mask=None, gamma=GAMMA, t
             models.visit.LogisticRegression, a models.visit.VisitFeatures and
             the feature columns it was trained on.
         diversity, features: MMR weight and item features (see recommend).
+        when: None, or (weekday, start minute, stay minutes, hours_of) to order
+            the visits by opening hours first (see route); hours_order=False
+            keeps the shortest order and only times it.
 
     Returns:
         dict with
@@ -138,6 +173,12 @@ def plan_day(pred, filt, items, start, user=None, n=6, mask=None, gamma=GAMMA, t
             legs_km       length of each leg: start -> 1st, 1st -> 2nd, ...
             path          (lat, lon) points to draw, along streets when roads is set
             rec_path      the same for the recommendation order
+        and, with `when`:
+            arrive_min, begin_min   arrival and visit start (after any wait) per stop,
+                                    in minutes from the day's midnight
+            closed                  per stop: no opening fits the visit
+            wait_min, end_min       total wait for openings, minute the last visit ends
+            distance_order_*        closed, km, wait_min, end_min of the distance-only order
 
     Re-ranking (step 2) still uses straight-line distance: it only has to tell
     near from far among the candidates, and street distance for all of them
@@ -147,10 +188,10 @@ def plan_day(pred, filt, items, start, user=None, n=6, mask=None, gamma=GAMMA, t
     if n > MAX_PLACES:
         raise ValueError(f"n must be between 1 and {MAX_PLACES}, got {n}")
     chosen = recommend(pred, filt, items, start, user, n, mask, gamma, tau, decay, visit, diversity, features)
-    return {**route(chosen, items, start, roads), "ranked": [int(c) for c in chosen]}
+    return {**route(chosen, items, start, roads, when, hours_order), "ranked": [int(c) for c in chosen]}
 
 
-def plan_days(pred, filt, items, start, days, per_day=6, roads=None, **kw):
+def plan_days(pred, filt, items, start, days, per_day=6, roads=None, when=None, hours_order=True, **kw):
     """A multi-day plan: recommend days * per_day places, one neighborhood per day.
 
     The places are grouped by map position with k-means capped at per_day
@@ -159,8 +200,10 @@ def plan_days(pred, filt, items, start, days, per_day=6, roads=None, **kw):
     fewer places than days * per_day the cap shrinks to spread them evenly, and
     a plan can have fewer days than asked for when there are very few places.
     The street network (roads = "osm" or a function) is fetched once around
-    all chosen places and reused for every day. kw are passed to recommend
-    (user, mask, visit, diversity, ...).
+    all chosen places and reused for every day. `when` (see route) gives the
+    first day's weekday; day d of the trip uses the weekday d days later
+    (hours_order as in route). kw are
+    passed to recommend (user, mask, visit, diversity, ...).
 
     Returns:
         dict with `days` (one route() dict per day, plus its `ranked` ids) and
@@ -172,16 +215,24 @@ def plan_days(pred, filt, items, start, days, per_day=6, roads=None, **kw):
         lats = np.r_[start[0], items.lat.values[chosen]]
         lons = np.r_[start[1], items.lon.values[chosen]]
         roads = RoadNetwork.around(lats, lons) if isinstance(roads, str) else roads(lats, lons)
+
+    def on_day(d):
+        if when is None:
+            return None
+        first, *rest = when
+        return (DAYS[(DAYS.index(first) + d) % 7], *rest)
+
     if days <= 1 or len(chosen) <= 1:
-        return {"days": [{**route(chosen, items, start, roads), "ranked": [int(c) for c in chosen]}],
+        return {"days": [{**route(chosen, items, start, roads, on_day(0), hours_order), "ranked": [int(c) for c in chosen]}],
                 "ranked": [int(c) for c in chosen]}
     size = min(per_day, -(-len(chosen) // days))  # ceil: spread few places evenly over the days
     labels, _ = balanced_kmeans(to_km(items.lat.values[chosen], items.lon.values[chosen]), days, size)
     rank = {int(c): r for r, c in enumerate(chosen)}
+    # np.unique(labels): each distinct label (day number) once, in ascending order
     groups = [chosen[labels == g] for g in np.unique(labels)]
     groups.sort(key=lambda g: min(rank[int(c)] for c in g))  # day 1 holds the top recommendation
     out = []
-    for g in groups:
+    for d, g in enumerate(groups):
         g = sorted(g, key=lambda c: rank[int(c)])
-        out.append({**route(g, items, start, roads), "ranked": [int(c) for c in g]})
+        out.append({**route(g, items, start, roads, on_day(d), hours_order), "ranked": [int(c) for c in g]})
     return {"days": out, "ranked": [int(c) for c in chosen]}

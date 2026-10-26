@@ -1,0 +1,104 @@
+{
+  "setup": {
+    "plans": 400,
+    "places_per_plan": 6,
+    "stay_min": 25,
+    "distance": "straight km",
+    "seed": 42,
+    "starts": [
+      480,
+      600,
+      720,
+      840,
+      1020,
+      1140
+    ],
+    "categories": [
+      "",
+      "Bakeries",
+      "Bars",
+      "Breakfast & Brunch",
+      "Coffee & Tea",
+      "Desserts",
+      "Pizza"
+    ]
+  },
+  "plans_with_closure": {
+    "distance": 160,
+    "hours": 60
+  },
+  "closed_visits_total": {
+    "distance": 272,
+    "hours": 82
+  },
+  "order_changed": 276,
+  "closed_per_plan": {
+    "distance": 0.68,
+    "hours": 0.205,
+    "mean_change": -0.475,
+    "wilcoxon_p": 3.610088075059302e-27
+  },
+  "km": {
+    "distance": 4.710246441301953,
+    "hours": 5.623972117995541,
+    "mean_change": 0.9137256766935867,
+    "wilcoxon_p": 5.137141309884564e-47
+  },
+  "wait_min": {
+    "distance": 57.398018656688635,
+    "hours": 18.574878673908987,
+    "mean_change": -38.823139982779644,
+    "wilcoxon_p": 1.6853855961411795e-28
+  },
+  "finish_min": {
+    "distance": 1083.5013045407147,
+    "hours": 1056.8611735805162,
+    "mean_change": -26.64013096019851,
+    "wilcoxon_p": 2.5030094128338177e-19
+  },
+  "when_changed": {
+    "plans": 276,
+    "closures_avoided": 190,
+    "extra_km_mean": 1.3242401111501256,
+    "extra_km_max": 12.603468745496427,
+    "less_wait_min_mean": 56.26542026489804
+  },
+  "by_category": {
+    "Bakeries": {
+      "plans": 52,
+      "closed_distance": 60,
+      "closed_hours": 26
+    },
+    "Bars": {
+      "plans": 50,
+      "closed_distance": 21,
+      "closed_hours": 7
+    },
+    "Breakfast & Brunch": {
+      "plans": 55,
+      "closed_distance": 30,
+      "closed_hours": 4
+    },
+    "Coffee & Tea": {
+      "plans": 50,
+      "closed_distance": 49,
+      "closed_hours": 11
+    },
+    "Desserts": {
+      "plans": 42,
+      "closed_distance": 29,
+      "closed_hours": 9
+    },
+    "Pizza": {
+      "plans": 53,
+      "closed_distance": 17,
+      "closed_hours": 7
+    },
+    "all": {
+      "plans": 98,
+      "closed_distance": 66,
+      "closed_hours": 18
+    }
+  },
+  "seconds": 10.5
+}

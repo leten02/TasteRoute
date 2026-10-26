@@ -107,9 +107,36 @@ def test_cached_network_covering_a_box_is_reused(tmp_path):
                         box=np.array(box))
     np.savez_compressed(tmp_path / "walk_old.npz", lat=net.lat, lon=net.lon, u=[0], v=[1], length_km=[0.1])  # no box
     inside = RoadNetwork._cached_covering(tmp_path, (40.005, 39.995, -74.995, -75.005))
-    assert inside is not None and inside.name == "walk_big.npz"
-    assert RoadNetwork._cached_covering(tmp_path, (40.05, 39.99, -74.99, -75.01)) is None  # sticks out north
+    assert [f.name for f in inside] == ["walk_big.npz"]
+    assert RoadNetwork._cached_covering(tmp_path, (40.05, 39.99, -74.99, -75.01)) == []  # sticks out north
     got = RoadNetwork.download(40.005, 39.995, -74.995, -75.005, cache_dir=tmp_path)  # no network access needed
+    assert len(got.lat) == len(net.lat)
+
+
+def test_damaged_smallest_cache_falls_back_to_larger(tmp_path):
+    net, lat, lon = _grid()
+    small = (40.006, 39.994, -74.994, -75.006)
+    big = (40.01, 39.99, -74.99, -75.01)
+    np.savez_compressed(tmp_path / "walk_small.npz", box=np.array(small))  # box only: arrays missing (damaged)
+    np.savez_compressed(tmp_path / "walk_big.npz", lat=net.lat, lon=net.lon, u=[0], v=[1], length_km=[0.1],
+                        box=np.array(big))
+    found = RoadNetwork._cached_covering(tmp_path, (40.005, 39.995, -74.995, -75.005))
+    assert [f.name for f in found] == ["walk_small.npz", "walk_big.npz"]  # smallest area first
+    got = RoadNetwork.download(40.005, 39.995, -74.995, -75.005, cache_dir=tmp_path, tries=0)
+    assert len(got.lat) == len(net.lat)
+
+
+def test_truncated_zip_cache_falls_back_to_next(tmp_path):
+    net, lat, lon = _grid()
+    small = (40.006, 39.994, -74.994, -75.006)
+    big = (40.01, 39.99, -74.99, -75.01)
+    np.savez_compressed(tmp_path / "walk_small.npz", lat=net.lat, lon=net.lon, u=[0], v=[1], length_km=[0.1],
+                        box=np.array(small))
+    data = (tmp_path / "walk_small.npz").read_bytes()
+    (tmp_path / "walk_small.npz").write_bytes(data[: len(data) // 2])  # cut in half: zipfile.BadZipFile on load
+    np.savez_compressed(tmp_path / "walk_big.npz", lat=net.lat, lon=net.lon, u=[0], v=[1], length_km=[0.1],
+                        box=np.array(big))
+    got = RoadNetwork.download(40.005, 39.995, -74.995, -75.005, cache_dir=tmp_path, tries=0)
     assert len(got.lat) == len(net.lat)
 
 
