@@ -102,7 +102,7 @@ streamlit run app/dashboard.py
 
 대시보드 화면 구성과 동작은 [docs/Dashboard.md](docs/Dashboard.md)에 정리했다. 영업시간 반영(도착 시각과 영업 상태), 여러 날 코스(용량 제한 k-means로 동네 나누기), 다양성 조절(MMR), BPR 순위 방식을 지원한다. Yelp 데이터를 읽기 때문에 `localhost`에서만 열리고, 공개 서버에 배포하지 않는다.
 
-실험을 하나씩 돌리려면 `python experiments/<이름>.py` (baseline, mf, item_knn, cbf_hybrid, compare_models, ranking, route, popularity, learned_distance, bpr, cold_start, walking, figures). cold_start는 먼저 `python -m tasteroute.item_extras`, walking은 `python -m tasteroute.roads`가 필요하다.
+실험을 하나씩 돌리려면 `python experiments/<이름>.py` (baseline, mf, item_knn, cbf_hybrid, compare_models, ranking, route, popularity, learned_distance, bpr, cold_start, walking, hours_route, figures). cold_start와 hours_route는 먼저 `python -m tasteroute.item_extras`, walking은 `python -m tasteroute.roads`가 필요하다.
 
 ## 결과 요약
 
@@ -128,6 +128,8 @@ streamlit run app/dashboard.py
 **RQ3 동선** (N = 6, `results/route.json`): 추천 순서대로 돌면 최적 경로보다 중앙값 26% 길다. NN + 2-opt는 82%의 사용자에서 정확한 최적해(평균 차이 0.9%). Held-Karp는 N = 8에서 약 1ms.
 
 **실제 도보 거리로 다시 재기** (`results/walking.json`, [설명](docs/Walking_Eval.md)): 도심 test 사용자 2,230명을 보행 도로망 거리로 다시 쟀다. 실제 도보는 직선보다 중앙값 1.30배 길다. 도보 거리로 재순위화해도 정확도에서 유의한 차이를 찾지 못했고(p = 0.61) 목록 평균 도보 거리는 5% 짧았으며(점 추정값), 직선으로 최적화한 동선은 65%가 도보로도 최적이고 평균 1.2%만 더 걷는다. 직선거리는 실험용 근사로 충분하고, 실제 길은 화면의 경로와 시간에 필요하다.
+
+**영업시간을 고려한 방문 순서** (`results/hours_route.json`, [설명](docs/Hours_Route.md)): Held-Karp에 도착 시각을 더해 닫힌 곳이 가장 적은 순서 중 가장 일찍 끝나는 순서를 정확히 찾는다 (상태마다 (닫힘 수, 끝난 시각)의 파레토 집합을 기억). 임의의 하루 일정 400개에서 도착 때 닫힌 방문이 272번에서 82번으로 70% 줄었다 (p < 1e-26). 대신 평균 0.9km 더 걷지만, 문 열기를 기다리는 시간이 39분 줄어 하루가 27분 일찍 끝난다.
 
 **랭킹 개선** (`results/popularity.json`): 예측 별점만으로는 인기순(P@10 0.0094)을 이기지 못한다. 별점에 log 인기도를 섞고(γ = 5) 거리 재순위화를 하면 P@10 0.0102지만, 인기순 + 거리(0.0100)와 사실상 같다. 이 데이터에서 랭킹 신호는 대부분 인기도와 거리에서 나온다.
 
@@ -163,6 +165,7 @@ streamlit run app/dashboard.py
 - [순위 학습 BPR](docs/BPR.md)
 - [가게 속성으로 cold start 다시 보기 (RQ2)](docs/Cold_Start.md)
 - [실제 도보 거리로 RQ1·RQ3 다시 재기](docs/Walking_Eval.md)
+- [영업시간을 고려한 방문 순서](docs/Hours_Route.md)
 - [대시보드](docs/Dashboard.md)
 - [코드 읽기 안내 (구조, 수식, 읽는 순서, 발표 예상 질문)](docs/Code_Walkthrough.md)
 - [발표 개요](docs/TasteRoute_Slides_Outline.md)

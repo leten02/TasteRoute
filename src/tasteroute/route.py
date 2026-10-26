@@ -101,3 +101,93 @@ def nn_two_opt(D):
     """Nearest neighbor followed by 2-opt."""
     order, _ = nearest_neighbor(D)
     return two_opt(D, order)
+
+
+def schedule(D, order, start_min, minutes_per_unit, stay, earliest):
+    """Arrival, visit start and open/closed for each stop of `order` (nodes 1..N).
+
+    Walking a leg of length D[a, b] takes D[a, b] * minutes_per_unit minutes.
+    earliest(j, t) is the first minute >= t at which place node j can be visited
+    for the whole stay (waiting for it to open), or None if it cannot be: the
+    visit then counts as closed and starts on arrival.
+
+    Returns (arrive, begin, closed): three lists in visiting order.
+    """
+    arrive, begin, closed = [], [], []
+    t, prev = float(start_min), 0
+    for j in order:
+        a = t + D[prev, j] * minutes_per_unit
+        s = earliest(j, a)
+        arrive.append(a)
+        begin.append(a if s is None else s)
+        closed.append(s is None)
+        t, prev = begin[-1] + stay, j
+    return arrive, begin, closed
+
+
+def held_karp_hours(D, start_min, minutes_per_unit, stay, earliest):
+    """Exact visiting order with opening hours: fewest closed visits, then earliest finish.
+
+    Held-Karp over the same states (S, j), but a state keeps every label
+    (closed, end) that no other label beats on both: `closed` visits so far and
+    the minute the visit to j ends. One number per state is not enough, because
+    a path that is later now may still avoid a closure that an earlier path
+    cannot (and vice versa).
+
+        arrive = end(k) + D[k][j] * minutes_per_unit
+        begin  = earliest(j, arrive), or arrive with closed + 1 when None
+        end(j) = begin + stay
+
+    Arriving earlier never hurts (one can always wait), so dropping dominated
+    labels keeps the optimum. With every place open the finish time is the start
+    time + walking + stays, so the order is the same as held_karp(D).
+
+    Returns (order, closed): order lists nodes 1..N, closed is the number of
+    closed visits in it.
+    """
+    n = len(D) - 1
+    if n == 0:
+        return [], 0
+    full = (1 << n) - 1
+    # labels[S][j]: list of (closed, end, k, index of the parent label in labels[S - {j}][k])
+    labels = [[None] * n for _ in range(1 << n)]
+
+    def step(t, k, j):
+        a = t + D[k, j] * minutes_per_unit
+        s = earliest(j, a)
+        return (1, a + stay) if s is None else (0, s + stay)
+
+    for j in range(n):
+        c, end = step(float(start_min), 0, j + 1)
+        labels[1 << j][j] = [(c, end, -1, -1)]
+    for S in range(1, full + 1):
+        for j in range(n):
+            if not S & (1 << j) or S == 1 << j:
+                continue
+            prev = S ^ (1 << j)
+            cand = []
+            for k in range(n):
+                if not prev & (1 << k):
+                    continue
+                for idx, (c0, t0, _, _) in enumerate(labels[prev][k]):
+                    c, end = step(t0, k + 1, j + 1)
+                    cand.append((c0 + c, end, k, idx))
+            # keep the Pareto front: sorted by (closed, end), a label survives only
+            # if it ends earlier than every label with fewer or equal closures
+            cand.sort()
+            front, best_end = [], np.inf
+            for lab in cand:
+                if lab[1] < best_end - 1e-9:
+                    front.append(lab)
+                    best_end = lab[1]
+            labels[S][j] = front
+    # best final label: fewest closed, then earliest end
+    j, idx = min(((j, i) for j in range(n) for i in range(len(labels[full][j]))),
+                 key=lambda ji: labels[full][ji[0]][ji[1]][:2])
+    closed = labels[full][j][idx][0]
+    order, S = [], full
+    while j != -1:
+        order.append(j + 1)
+        _, _, k, pidx = labels[S][j][idx]
+        S, j, idx = S ^ (1 << j), k, pidx
+    return order[::-1], closed

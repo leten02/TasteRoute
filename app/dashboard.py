@@ -88,6 +88,7 @@ st.markdown(f"""
   .tile .val {{ font-size: 28px; font-weight: 600; color: {INK}; font-variant-numeric: tabular-nums; margin-top: 2px; }}
   .tile .val small {{ font-size: 15px; color: {MUTED}; font-weight: 500; margin-left: 2px; }}
   .tile .note {{ font-size: 12px; color: {MUTED}; margin-top: 2px; line-height: 1.45; }}
+  .note .nw {{ white-space: nowrap; }}
   /* tablet: 2 x 2 tiles; phone: smaller numbers so each tile stays on one line */
   @media (max-width: 1100px) {{ .tiles {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} }}
   @media (max-width: 560px) {{
@@ -166,7 +167,8 @@ def load_engine():
 
 
 @st.cache_data(show_spinner=False)
-def run_plan(user, start, category, n, method, tau, walking, days=1, diversity=0.0, when=None, cache_only=False):
+def run_plan(user, start, category, n, method, tau, walking, days=1, diversity=0.0, when=None, order_by_hours=False,
+             cache_only=False):
     """plan_days for these choices (cached per combination).
 
     when: (first weekday, start minute, stay minutes) to keep only places that
@@ -175,6 +177,9 @@ def run_plan(user, start, category, n, method, tau, walking, days=1, diversity=0
         leaves the place open for the whole stay. None ignores opening hours.
         Requiring every day is deliberately strict: k-means decides the day
         later, so the place is open whichever day it lands on.
+    order_by_hours: with `when`, order each day's visits by opening hours
+        (fewest closed arrivals first); otherwise keep the shortest order. Either
+        way the timeline waits for places that open later.
     cache_only: use only street networks already on disk (after a failed download).
     """
     eng = load_engine()
@@ -194,6 +199,13 @@ def run_plan(user, start, category, n, method, tau, walking, days=1, diversity=0
         return RoadNetwork.around(lats, lons, tries=0 if cache_only else 1, timeout=25)
 
     kw = {"user": user, "mask": mask, "tau": tau, "diversity": diversity, "features": eng["features"]}
+    if when is not None and eng["extras"] is not None:
+        hours = eng["extras"].hours
+
+        def hours_of(i):
+            h = hours.get(i)
+            return h if isinstance(h, dict) and h else None
+        kw["when"], kw["hours_order"] = (*when, hours_of), order_by_hours
     if method == "bpr":
         # BPR scores rank places directly: no popularity blend (gamma = 0), then distance
         pred = eng["bpr"].score_all(user)
@@ -267,6 +279,9 @@ with st.sidebar:
     use_hours = st.toggle("문 여는 곳만 추천", value=has_hours, disabled=not has_hours,
                           help="그날 일정 중에 머무는 동안 계속 문을 여는 곳만 골라요. 영업시간 정보가 없는 곳도 포함해요."
                           if has_hours else "영업시간 데이터가 없어요. python -m tasteroute.item_extras 를 먼저 실행해 주세요.")
+    order_by_hours = st.toggle("영업시간에 맞춰 순서 정하기", value=True, disabled=not use_hours,
+                               help="거리만 보면 늦게 도착해 문이 닫히는 곳이 생길 수 있어요. 켜면 닫힌 곳이 가장 적은 순서를 "
+                               "먼저 고르고, 그중 가장 일찍 끝나는 순서로 돌아요. 열기 전에 도착하면 기다려요.")
 
     # advanced: the defaults are the experiments' best settings, so most visitors never open this
     with st.expander("고급 설정 · 추천 방식과 길 찾기"):
@@ -315,32 +330,38 @@ with tab_plan:
     args = (user, start, category, n, method, tau)
     try:
         with st.spinner("코스를 만들고 있어요… (처음 가는 지역은 길 정보를 받느라 조금 걸려요)"):
-            plan = run_plan(*args, walking, days, diversity, when, cache_only=bool(st.session_state.get("osm_failed")))
+            plan = run_plan(*args, walking, days, diversity, when, order_by_hours and use_hours,
+                            cache_only=bool(st.session_state.get("osm_failed")))
     except RuntimeError:  # street download failed, or not cached while the server is down
         if not st.session_state.get("osm_failed"):
             st.session_state.osm_failed = True
             st.warning("이 지역의 길 정보를 받지 못해 직선으로 보여 드려요.")
-        plan = run_plan(*args, False, days, diversity, when)
+        plan = run_plan(*args, False, days, diversity, when, order_by_hours and use_hours)
         walking = False
 
     items, extras = eng["items"], eng["extras"]
     eligible_pop = eng["eligible_pop"]
     rank_of = {i: k + 1 for k, i in enumerate(plan["ranked"])}
-    view_days, closed = [], 0
+    view_days, closed, total_wait, distance_closed = [], 0, 0.0, 0
     for d, day in enumerate(plan["days"]):
         wd = DAYS[(DAYS.index(weekday) + d) % 7]
         t, stops = start_min, []
-        for i, leg in zip(day["places"], day["legs_km"]):
+        distance_closed += day.get("distance_order_closed", 0)
+        for k, (i, leg) in enumerate(zip(day["places"], day["legs_km"])):
             row = items.iloc[i]
-            t += leg / WALK_KMH * 60
-            arrive = t
-            t += stay
+            # ordered by hours: the route already knows arrival and any wait for opening
+            arrive = day["arrive_min"][k] if "arrive_min" in day else t + leg / WALK_KMH * 60
+            begin = day["begin_min"][k] if "begin_min" in day else arrive
+            total_wait += begin - arrive
+            t = begin + stay
+            wait = int(round(begin - arrive))  # one rounded value for the status and the card
             hours = extras.hours.get(i) if extras is not None else None
             status = "unknown"
             if isinstance(hours, dict) and hours:
-                # minutes past midnight roll over to the next weekday inside is_open_at
-                ok = open_for(hours, wd, arrive, stay)
-                status = "open" if ok else "closed"
+                # the planner's verdict when it timed the day; otherwise check the stay here
+                # (minutes past midnight roll over to the next weekday inside is_open_at)
+                ok = not day["closed"][k] if "closed" in day else open_for(hours, wd, begin, stay)
+                status = ("wait" if wait > 0 else "open") if ok else "closed"
                 closed += status == "closed"
             d0 = float(haversine(start[0], start[1], row.lat, row.lon))
             top = 100 * (1 - np.searchsorted(eligible_pop, eng["filt"].popularity[i]) / len(eligible_pop))
@@ -349,8 +370,9 @@ with tab_plan:
                 "name": row["name"], "lat": float(row.lat), "lon": float(row.lon), "stars": float(row.stars),
                 "reviews": int(row.review_count), "pred": plan["stars"][i], "rank": rank_of[i], "tags": tags,
                 "leg_km": leg, "leg_min": int(round(leg / WALK_KMH * 60)), "arrive": hhmm(arrive),
+                "wait": wait, "begin": hhmm(begin),
                 # hours of the opening that covers the arrival (Tue 01:00 in a Mon 17:00-02:00 opening: Monday)
-                "hours": hours_today(hours, hours_day_at(hours, wd, arrive)) if hours else None,
+                "hours": hours_today(hours, hours_day_at(hours, wd, begin)) if hours else None,
                 "status": status,
                 "why": f"출발지에서 직선 {d0:.1f}km · 리뷰 수 상위 {max(top, 0.1):.1f}%",
             })
@@ -365,18 +387,30 @@ with tab_plan:
     n_places = sum(len(x["places"]) for x in plan["days"])
     dist_kind = "도보" if walking else "직선"
     method_note = {"learned": "거리 학습 모델", "bpr": f"BPR + 거리 τ={tau:g}km", "fixed": f"고정 규칙 τ={tau:g}km"}[method]
-    hours_note = ("모두 영업 중에 도착" if closed == 0 else f"{closed}곳은 도착 때 문 닫음") if use_hours else "영업시간 미반영"
-    end_note = f" · {view_days[0]['end']} 종료" if len(view_days) == 1 else ""
+    # time breakdown on one line, outcome on the next; each part keeps its words together
+    time_parts = [f"{'걷기' if walking else '걷기(직선 기준)'} {hm(walk_min, unit=False)}",
+                  f"머물기 {hm(n_places * stay, unit=False)}"]
+    if total_wait >= 1:
+        time_parts.append(f"대기 {hm(total_wait, unit=False)}")
+    result_parts = [f"{view_days[0]['end']} 종료"] if len(view_days) == 1 else []
+    if use_hours:
+        result_parts.append("모두 영업 중" if closed == 0 else f"{closed}곳은 도착 때 문 닫음")
+        if order_by_hours and distance_closed > closed:
+            result_parts.append(f"거리순이면 {distance_closed}곳 닫힘")
+    else:
+        result_parts.append("영업시간 미반영")
+    time_note = "<br>".join(" · ".join(f'<span class="nw">{p}</span>' for p in parts)
+                            for parts in (time_parts, result_parts))
     st.markdown(f"""
     <div class="tiles">
       <div class="tile"><div class="lab">총 {dist_kind} 거리</div><div class="val">{total_km:.1f}<small>km</small></div>
         <div class="note">직선거리로는 {sum(x['straight_km'] for x in plan['days']):.1f}km</div></div>
-      <div class="tile"><div class="lab">총 소요 시간</div><div class="val">{hm(walk_min + n_places * stay)}</div>
-        <div class="note">{"걷기" if walking else "걷기(직선 기준)"} {hm(walk_min, unit=False)} · 머물기 {hm(n_places * stay, unit=False)}{end_note} · {hours_note}</div></div>
+      <div class="tile"><div class="lab">총 소요 시간</div><div class="val">{hm(walk_min + n_places * stay + total_wait)}</div>
+        <div class="note">{time_note}</div></div>
       <div class="tile"><div class="lab">방문 장소</div><div class="val">{n_places}<small>곳</small></div>
         <div class="note">{CATEGORY_KO[category]} · {method_note}{f" · 다양성 {diversity:g}" if diversity else ""}</div></div>
-      <div class="tile accent"><div class="lab">추천 순서대로 갈 때보다</div><div class="val">▼ {saved:.1f}<small>km</small></div>
-        <div class="note">최적 순서(Held-Karp)로 {saved / max(rec_km, 1e-9) * 100:.0f}% 단축</div></div>
+      <div class="tile accent"><div class="lab">추천 순서대로 갈 때보다</div><div class="val">{"▼" if saved >= 0 else "▲"} {abs(saved):.1f}<small>km</small></div>
+        <div class="note">{f"최적 순서(Held-Karp)로 {saved / max(rec_km, 1e-9) * 100:.0f}% 단축" if saved >= 0 else "영업시간을 맞추느라 조금 더 걸어요"}</div></div>
     </div>""", unsafe_allow_html=True)
 
     n_days = len(plan["days"])  # can be fewer than asked for when few places qualify
@@ -402,7 +436,7 @@ with tab_plan:
 1. **예상 별점**: {"처음 온 방문자라 전체 평균에 가게별 보정(μ + b_i)을 더해" if user is None else f"사용자 #{user}의 취향(CBF: bias + 카테고리 취향)으로"} 모든 가게의 별점을 예측해요. 카드의 '예상 ★'이 이 값이에요.
 2. **후보**: 리뷰가 20개 이상이고 아직 안 가 본 {CATEGORY_KO[category]}{"" if not use_hours else f" 가운데 {DAYS_KO[weekday]}요일 {hhmm(start_min)} 출발 일정 동안 문을 여는 곳"}을 추려, 점수가 높은 200곳을 후보로 뽑아요.
 3. **순위**: {rank_text}{f" 다양성을 {diversity:g}로 두어 이미 고른 곳과 비슷한 가게는 점수를 낮춰요(MMR)." if diversity else ""} 그중 상위 {n * days}곳을 골라요.
-4. **{"동네 나누기와 동선" if days > 1 else "동선"}**: {f"k-means로 {days}개 동네로 나눠 하루에 한 동네씩 돌고, " if days > 1 else ""}{"OpenStreetMap 보행 도로망에서 Dijkstra로 구한 실제 걷는 거리" if walking else "직선거리"}를 기준으로 Held-Karp가 가장 짧은 방문 순서를 찾아요. 한 곳에 {stay}분씩 머문다고 보고 도착 시각과 영업 여부를 계산해요.
+4. **{"동네 나누기와 동선" if days > 1 else "동선"}**: {f"k-means로 {days}개 동네로 나눠 하루에 한 동네씩 돌고, " if days > 1 else ""}{"OpenStreetMap 보행 도로망에서 Dijkstra로 구한 실제 걷는 거리" if walking else "직선거리"}를 기준으로 {"Held-Karp를 영업시간까지 보도록 넓혀, 도착했을 때 닫힌 곳이 가장 적은 순서 중 가장 일찍 끝나는 순서를 찾아요. 열기 전에 도착하면 기다려요." if order_by_hours and use_hours else "Held-Karp가 가장 짧은 방문 순서를 찾아요."} 한 곳에 {stay}분씩 머문다고 보고 도착 시각과 영업 여부를 계산해요.
 """)
 
 # ---------------------------------------------------------------- tab 2: results
