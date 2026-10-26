@@ -386,11 +386,46 @@ def w2_route_on_streets():
     save(fig, "W2_route_on_streets")
 
 
+def s1_temporal():
+    """S1: random vs time-ordered split, rating RMSE and ranking NDCG@10 side by side."""
+    d = load("temporal")
+    rt = d["rating"]["test"]
+    rk = d["ranking"]["methods"]
+    models = ["Global mean", "Bias", "MF", "CBF", "Hybrid"]
+    methods = ["Popularity", "Popularity + distance", "Hybrid", "Hybrid + distance",
+               "Hybrid blend", "Hybrid blend + distance"]
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(13, 4.4), gridspec_kw={"width_ratios": [5, 6]})
+    w = 0.38
+    for ax, names, get, fmt in ((a1, models, lambda s, n: rt[n][s]["rmse"], "{:.3f}"),
+                                (a2, methods, lambda s, n: rk[n][s]["NDCG@10"], "{:.4f}")):
+        x = np.arange(len(names))
+        for k, (split, color) in enumerate((("random", GRID), ("temporal", BLUE))):
+            vals = [get(split, n) for n in names]
+            ax.bar(x + (k - 0.5) * w, vals, width=w, color=color, label=f"{split} split")
+            for xi, v in zip(x, vals):
+                ax.text(xi + (k - 0.5) * w, v, fmt.format(v), ha="center", va="bottom", fontsize=7, color=INK,
+                        rotation=90 if v < 0.002 else 0)
+        ax.set_xticks(x)
+        ax.set_xticklabels([n.replace("Hybrid blend", "Hybrid\nblend").replace(" + ", "\n+ ") for n in names],
+                           fontsize=9)
+    a1.set_ylim(1.0, 1.27)
+    a1.set_ylabel("Test RMSE (lower is better)")
+    a2.set_ylabel("NDCG@10 (higher is better)")
+    a1.legend(frameon=False, loc="upper right", fontsize=9)
+    bias = rt["Bias"]
+    hyb, hyb_d = rk["Hybrid"]["temporal"], rk["Hybrid + distance"]["temporal"]
+    titled(fig, "Predicting the future is harder, but the conclusions hold",
+           f"Each warm user's oldest ~70% trains, newest ~15% tests · Bias RMSE {bias['random']['rmse']:.3f} -> "
+           f"{bias['temporal']['rmse']:.3f} · distance still lifts Hybrid NDCG@10 "
+           f"{hyb['NDCG@10']:.4f} -> {hyb_d['NDCG@10']:.4f} · 3,000 test users")
+    save(fig, "S1_temporal_split")
+
+
 def main():
     """Run this step and write its output (see the module docstring)."""
     for f in (v1_rmse, v5_cold, m1_knn, m3_mf_curve, m4_mf_grid, m5_blend, r2_pareto, t2_timing, t3_gap,
               d1_popularity, l1_learned, l2_distance_curve, b1_bpr_activity,
-              c1_cold_shrink, w1_detour, w2_route_on_streets):
+              c1_cold_shrink, w1_detour, w2_route_on_streets, s1_temporal):
         f()
 
 

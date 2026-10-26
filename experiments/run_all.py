@@ -7,7 +7,7 @@ business file in data/raw/ (place attributes for cold_start are extracted first)
 import importlib
 import time
 
-STEPS = ["baseline", "mf", "item_knn", "cbf_hybrid", "compare_models", "ranking", "route", "popularity", "learned_distance", "bpr", "cold_start", "walking", "hours_route", "figures"]
+STEPS = ["baseline", "mf", "item_knn", "cbf_hybrid", "compare_models", "ranking", "route", "popularity", "learned_distance", "bpr", "cold_start", "walking", "hours_route", "temporal", "figures"]
 
 
 def main():

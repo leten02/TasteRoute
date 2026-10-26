@@ -15,11 +15,13 @@ and 1, 3 or 5 for cold-start users, who keep only that many training ratings.
 """
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from scipy import sparse
 
 ROOT = Path(__file__).resolve().parents[2]
 PROCESSED = ROOT / "data" / "processed"
+HOLDOUT_SHARE = 0.15  # validation and test share per user, as in preprocess.py
 
 
 def load_ratings():
@@ -59,6 +61,40 @@ def get_split(ratings, name, warm_only=False):
     out = ratings[ratings.split == name]
     if warm_only:
         out = out[out.cold_m == 0]
+    return out
+
+
+def temporal_split(ratings):
+    """Return a copy of ratings whose warm users are split by date instead of at random.
+
+    preprocess.py shuffles each user's ratings before the 70 / 15 / 15 split, so
+    a training rating can be newer than a test rating. Here every warm user
+    (cold_m == 0) keeps the same split sizes, but the oldest ratings go to train,
+    the next ones to val and the newest to test ("learn the past, predict the
+    future"). Ties on date are broken by item id so the result is deterministic.
+    Cold-start users keep their original split, so the training set they add
+    is the same in both protocols.
+
+    Sizes follow preprocess.py: n_val = n_test = max(1, round(0.15 * n)) and
+    train gets the rest, which must be at least one rating.
+    """
+    out = ratings.copy()
+    # work with row positions (_row), so a non-unique index cannot misplace a split
+    rows = np.flatnonzero(out.cold_m.to_numpy() == 0)
+    warm = out.iloc[rows][["u", "date", "i"]].assign(_row=rows).sort_values(["u", "date", "i"], kind="stable")
+    g = warm.groupby("u")
+    # transform("size") repeats each user's rating count on every row of that user;
+    # cumcount() numbers a user's rows 0, 1, 2, ... in the (date) order above
+    n = g.u.transform("size").to_numpy()
+    pos = g.cumcount().to_numpy()
+    # np.round rounds halves to even, the same rule as Python's round() in preprocess.py
+    n_hold = np.maximum(1, np.round(HOLDOUT_SHARE * n)).astype(int)
+    n_train = n - 2 * n_hold
+    if (n_train < 1).any():
+        raise ValueError("every warm user needs at least 3 ratings for a train / val / test split")
+    col = out["split"].to_numpy(dtype=object).copy()
+    col[warm._row.to_numpy()] = np.where(pos < n_train, "train", np.where(pos < n_train + n_hold, "val", "test"))
+    out["split"] = col
     return out
 
 
