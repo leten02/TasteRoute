@@ -40,6 +40,9 @@ class GlobalMean:
 
     def predict(self, u, i):
         """Predicted stars, clipped to 1-5, for each pair (u[k], i[k])."""
+        # np.full(n, value) makes an array of length n filled with value.
+        # np.clip(a, a_min, a_max) replaces values below a_min with a_min and
+        # above a_max with a_max (element-wise), keeping predictions on the 1-5 scale.
         return np.clip(np.full(len(u), self.mu), MIN_STARS, MAX_STARS)
 
     def score_all(self, u):

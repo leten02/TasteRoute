@@ -97,6 +97,21 @@ def test_blend_and_two_stage():
     assert list(two_stage(f, 5, np.array([1.0, 5.0, 9.0]), pool=2)) == [1, 0]
 
 
+def test_two_stage_pool_larger_than_candidates():
+    from tasteroute.candidates import two_stage
+
+    items = pd.DataFrame({"i": [0, 1, 2], "is_open": [1, 1, 1]})
+    train = pd.DataFrame({"u": [9] * 6, "i": [0, 0, 0, 1, 1, 2]})
+    f = CandidateFilter(items, train, seen=train.iloc[:0], min_support=1)
+    pred = np.array([1.0, 5.0, 9.0])
+    # pool 4 > 3 items: top_m clips m to the item count, so every place is a candidate
+    assert list(f.top_m(5, f.popularity, m=4)) == [0, 1, 2]
+    assert list(two_stage(f, 5, pred, pool=4)) == [2, 1, 0]
+    # pool larger than the eligible places: ineligible ones are dropped, not padded
+    f2 = CandidateFilter(items, train, seen=train.iloc[:0], min_support=2)
+    assert list(two_stage(f2, 5, pred, pool=4)) == [1, 0]
+
+
 def test_rerank_with_equal_scores_orders_by_distance():
     from tasteroute.candidates import to_unit
     from tasteroute.rerank import rerank
