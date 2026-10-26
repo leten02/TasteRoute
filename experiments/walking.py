@@ -59,6 +59,7 @@ def main():
     anchors, lat, lon = ctx["anchors"], ctx["items"].lat.values, ctx["items"].lon.values
     net = RoadNetwork.download(*CENTER_CITY_BOX)
     item_inside = inside_scope(net, lat, lon)
+    inside_items = set(np.flatnonzero(item_inside))
     print(f"network {len(net.lat):,} nodes; places inside {item_inside.sum():,}", flush=True)
     def pool(filt, u):
         """Blend-score top POOL inside the city and network, with straight and walking km from u's anchor."""
@@ -74,8 +75,15 @@ def main():
     # ---- tau per distance type on validation users inside the network ----
     val = get_split(load_ratings(), "val", warm_only=True)
     rel_val = val[val.stars >= 4].groupby("u").i.apply(set)
+    # Match ground truth to the same geographic population as the candidates;
+    # retain the full in-scope relevance set, not just the top-POOL candidates.
+    rel_val = rel_val.map(inside_items.intersection)
+    rel_val = rel_val[rel_val.map(bool)]
     rng = np.random.default_rng(SEED + 4)
     val_users = inside(rel_val.index.values)
+    if len(val_users) == 0:
+        raise RuntimeError("no validation users with relevant places inside Center City and the network; "
+                           "check the dataset and cached network coverage")
     val_users = rng.choice(val_users, size=min(N_VAL, len(val_users)), replace=False)
     val_filt = CandidateFilter(items, train, seen=train)
     val_pools = [pool(val_filt, u) for u in val_users]
@@ -91,9 +99,11 @@ def main():
     out["tau"] = best_tau
     print(f"validation: {len(val_users)} users, tau {best_tau} ({time.time() - t0:.0f}s)", flush=True)
     # ---- test users inside the network ----
-    keep = inside_scope(net, anchors[ctx["users"], 0], anchors[ctx["users"], 1], margin_km=EDGE_KM)
+    scoped_relevant = [inside_items.intersection(r) for r in ctx["relevant"]]
+    keep = (inside_scope(net, anchors[ctx["users"], 0], anchors[ctx["users"], 1], margin_km=EDGE_KM)
+            & np.array([bool(r) for r in scoped_relevant]))
     users = ctx["users"][keep]
-    relevant = [r for r, k in zip(ctx["relevant"], keep) if k]
+    relevant = [r for r, k in zip(scoped_relevant, keep) if k]
     filt = ctx["filt"]
     pools = [pool(filt, u) for u in users]
     print(f"test: {len(users)} users inside the network ({time.time() - t0:.0f}s)", flush=True)
