@@ -88,17 +88,19 @@ The remaining figures use the Philadelphia scope (15 km around City Hall, Restau
 
 ![Figure 8 (E6). Restaurants concentrate near City Hall; 57% of kept places lie within 5 km.](figures/E6.png){width=6.3in}
 
-![Figure 9 (E7). Two random restaurants in scope are typically 9.1 km apart.](figures/E7.png){width=6.3in}
+![Figure 9 (MAP1). The study area on a map: all 7,693 kept restaurants inside the 15 km circle, coloured by training ratings. The most-rated places (orange) cluster in Center City. Map data © OpenStreetMap contributors.](figures/MAP_STUDY_AREA.png){width=6.3in}
 
-![Figure 10 (E8). Half of users stay within 2.3 km of their own centre; this sets the starting decay scale tau = 2 km.](figures/E8.png){width=6.3in}
+![Figure 10 (E7). Two random restaurants in scope are typically 9.1 km apart.](figures/E7.png){width=6.3in}
 
-The gap between Figure 9 and Figure 10 is the case for distance re-ranking: places are spread about 9 km apart, but users behave locally. The median distance from a user's anchor to the places they rate is 1.4 km, and 90% are within 8.5 km.
+![Figure 11 (E8). Half of users stay within 2.3 km of their own centre; this sets the starting decay scale tau = 2 km.](figures/E8.png){width=6.3in}
 
-![Figure 11 (E10). Bars and Nightlife are near duplicates (Jaccard 0.95), which IDF weighting must not count twice.](figures/E10.png){width=6.3in}
+The gap between Figure 10 and Figure 11 is the case for distance re-ranking: places are spread about 9 km apart, but users behave locally. The median distance from a user's anchor to the places they rate is 1.4 km, and 90% are within 8.5 km.
 
-![Figure 12 (E11). Business mean ratings spread wider than user mean ratings (std 0.72 vs 0.65), so both bias terms are needed.](figures/E11.png){width=6.3in}
+![Figure 12 (E10). Bars and Nightlife are near duplicates (Jaccard 0.95), which IDF weighting must not count twice.](figures/E10.png){width=6.3in}
 
-![Figure 13 (E12). More-reviewed restaurants rate higher (3.48 → 4.00 stars), so a popularity prior is not only bias.](figures/E12.png){width=6.3in}
+![Figure 13 (E11). Business mean ratings spread wider than user mean ratings (std 0.72 vs 0.65), so both bias terms are needed.](figures/E11.png){width=6.3in}
+
+![Figure 14 (E12). More-reviewed restaurants rate higher (3.48 → 4.00 stars), so a popularity prior is not only bias.](figures/E12.png){width=6.3in}
 
 Statistics behind these figures:
 
@@ -114,7 +116,7 @@ $$
 
 The working set is Philadelphia restaurants within 15 km of City Hall after 5-core filtering: 490,539 ratings, 31,743 users and 7,693 businesses (density 0.20%). The preprocessing script builds it in about 90 seconds.
 
-![Figure 14 (P1). Preprocessing pipeline, all counts measured.](figures/P1.png){width=6.3in}
+![Figure 15 (P1). Preprocessing pipeline, all counts measured.](figures/P1.png){width=6.3in}
 
 | Stage | Ratings | Users | Businesses |
 | --- | --- | --- | --- |
@@ -138,7 +140,7 @@ $$
 \mathcal{R}_k = \text{largest } \mathcal{R}' \subseteq \mathcal{R} \ \text{ s.t. } \ |\mathcal{I}_u'| \ge k \ \ \forall u, \quad |\mathcal{U}_i'| \ge k \ \ \forall i
 $$
 
-![Figure 15 (E13). At k = 5, 61% of ratings but only 13% of users survive; k = 10 would halve the users again, so k = 5 stays.](figures/E13.png){width=6.3in}
+![Figure 16 (E13). At k = 5, 61% of ratings but only 13% of users survive; k = 10 would halve the users again, so k = 5 stays.](figures/E13.png){width=6.3in}
 
 ### 4.3 Category matrix
 
@@ -152,9 +154,9 @@ $$
 
 Each user's ratings are split about 70 / 15 / 15 into train, validation and test, with at least one validation and one test rating per user. Hyperparameters are tuned only on validation; the test set is used once. Because k-core filtering removes exactly the users RQ2 is about, 10% of users with at least 10 ratings (1,306 users) keep only m = 1, 3 or 5 training ratings to simulate new users.
 
-![Figure 16 (P4). Split sizes and the cold-start group.](figures/P4.png){width=6.3in}
+![Figure 17 (P4). Split sizes and the cold-start group.](figures/P4.png){width=6.3in}
 
-![Figure 17 (P2). 5-core filtering removes one-off extremes: the 1-star share falls from 10% to 6%.](figures/P2.png){width=6.3in}
+![Figure 18 (P2). 5-core filtering removes one-off extremes: the 1-star share falls from 10% to 6%.](figures/P2.png){width=6.3in}
 
 ## 5. Models
 
@@ -265,7 +267,7 @@ $$
 \text{score}(u,i) = \frac{\hat{r}_{ui} - 1}{4} \cdot w\big(d(\ell_u, \ell_i)\big)
 $$
 
-![Figure 18 (R1). The decay shape decides how fast a far place loses its score; scales are tuned on validation.](figures/R1.png){width=6.3in}
+![Figure 19 (R1). The decay shape decides how fast a far place loses its score; scales are tuned on validation.](figures/R1.png){width=6.3in}
 
 Maximal Marginal Relevance (category diversity) and division by a power of popularity were implemented as optional knobs; on this data both cost accuracy and stay off by default.
 
@@ -332,7 +334,7 @@ All numbers are on the test set; every choice was made on validation. Sources ar
 
 The median user has only 6 training ratings, so there is little structure beyond the user and item biases. MF is slightly worse than Bias, and CBF and Hybrid cannot be told apart from it.
 
-![Figure 19 (V1). Test RMSE per model with 95% bootstrap intervals over users (69,847 warm test ratings).](figures/V1_rmse_by_model.png){width=6.0in}
+![Figure 20 (V1). Test RMSE per model with 95% bootstrap intervals over users (69,847 warm test ratings).](figures/V1_rmse_by_model.png){width=6.0in}
 
 ### 9.2 Ranking and distance re-ranking (RQ1)
 
@@ -350,21 +352,25 @@ The median user has only 6 training ratings, so there is little structure beyond
 
 RQ1 expected a trade-off: closer lists, lower accuracy. The opposite happened. Exponential decay with tau = 2 km cuts the Hybrid list's mean distance from 6.3 to 2.1 km and raises NDCG@10 from 0.0009 to 0.0062 (6.9 times). Users mostly rate places near where they already go, so distance is itself a strong relevance signal. The hard cutoff is worse than smooth decay at every radius.
 
-![Figure 20 (R2). Closer lists are also more accurate: NDCG@10 against mean list distance, one point per decay scale (tau, or the radius for cutoff). Power decay is not drawn because it overlaps the exponential curve (within 0.00015).](figures/R2_accuracy_vs_distance.png){width=6.0in}
+![Figure 21 (R2). Closer lists are also more accurate: NDCG@10 against mean list distance, one point per decay scale (tau, or the radius for cutoff). Power decay is not drawn because it overlaps the exponential curve (within 0.00015).](figures/R2_accuracy_vs_distance.png){width=6.0in}
+
+The same effect for a single user on the map. User 12438 was chosen as the clearest example among the sampled users near City Hall (largest drop in list distance with at least one test hit after re-ranking), so it shows the mechanism, not a typical size. Without distance, the Hybrid top 10 is spread across the region (mean 7.4 km from the anchor, as far as Haddonfield, New Jersey); with exponential decay the list moves within about 2 km (mean 1.3 km) and includes a place this user rated 4 or more stars in the test set.
+
+![Figure 22 (MAP2). Hybrid top 10 for one user before (grey) and after (blue) distance re-ranking. Map data © OpenStreetMap contributors.](figures/MAP_RERANK.png){width=6.3in}
 
 Predicted ratings alone do not beat popularity, and a popularity blend plus distance (P@10 0.0102) is practically the same as popularity plus distance (0.0100): the ranking signal in this data comes mostly from popularity and distance.
 
-![Figure 21 (D1). Popularity and distance carry the ranking signal.](figures/D1_popularity_blend.png){width=5.6in}
+![Figure 23 (D1). Popularity and distance carry the ranking signal.](figures/D1_popularity_blend.png){width=5.6in}
 
 The learned visit model (Section 5.7) is significantly more accurate than the earlier fixed setting (NDCG@10 0.0340 → 0.0365, p = 0.003). It is not significantly different from a fixed rule with tau re-tuned on 200 candidates (0.0373, p = 0.36), but it covers more of the catalog (1.26% vs 1.01%, point estimate). Removing the personal travel radius makes it significantly worse.
 
-![Figure 22 (L1). Learned visit model against fixed decay rules.](figures/L1_learned_vs_fixed.png){width=5.6in}
+![Figure 24 (L1). Learned visit model against fixed decay rules.](figures/L1_learned_vs_fixed.png){width=5.6in}
 
-![Figure 23 (L2). Learned distance response: at 1 km, one more km of distance is offset by 1.56 times the popularity.](figures/L2_learned_distance_curve.png){width=5.6in}
+![Figure 25 (L2). Learned distance response: at 1 km, one more km of distance is offset by 1.56 times the popularity.](figures/L2_learned_distance_curve.png){width=5.6in}
 
 BPR, which learns the ranking directly, shows no evidence of beating popularity overall (NDCG@10 0.0326 vs 0.0323, p = 0.61). It was ahead only for users with 21 or more training ratings (0.0419 vs 0.0381, p = 0.03 before correcting for three groups). Changing the objective to ranking does not create a strong personal signal in this data.
 
-![Figure 24 (B1). BPR against popularity by user activity.](figures/B1_bpr_by_activity.png){width=5.6in}
+![Figure 26 (B1). BPR against popularity by user activity.](figures/B1_bpr_by_activity.png){width=5.6in}
 
 ### 9.3 Cold start (RQ2)
 
@@ -379,9 +385,9 @@ BPR, which learns the ranking directly, shows no evidence of beating popularity 
 
 Test RMSE of the 1,306 simulated new users who keep m training ratings. CBF and Hybrid stay within 0.002 of the bias model. Adding 42 place attributes and the content-based neighbor model did not help either: for both attribute models, validation chose the setting that switches content off as far as the range allowed, and no model differs from Bias (all p ≥ 0.19). The answer to RQ2 is no: in this data, content does not explain a new user's ratings.
 
-![Figure 25 (V5). Cold-start RMSE at 1, 3 and 5 training ratings.](figures/V5_cold_start.png){width=5.6in}
+![Figure 27 (V5). Cold-start RMSE at 1, 3 and 5 training ratings.](figures/V5_cold_start.png){width=5.6in}
 
-![Figure 26 (C1). With place attributes, validation shrinks the content term toward zero.](figures/C1_cold_start_shrink.png){width=5.6in}
+![Figure 28 (C1). With place attributes, validation shrinks the content term toward zero.](figures/C1_cold_start_shrink.png){width=5.6in}
 
 ### 9.4 Route optimization (RQ3)
 
@@ -394,21 +400,21 @@ Test RMSE of the 1,306 simulated new users who keep m training ratings. CBF and 
 
 Ordering matters even for six nearby places: the optimal order saves a median 1.2 km. Held-Karp takes 0.9 ms for 8 places and 31 ms for 12, while brute force needs 314 ms already at 9, so the exact solver is used in the system and the heuristic is a comparison for RQ3.
 
-![Figure 27 (T3). Visiting in recommendation order walks 26% more; NN + 2-opt is exactly optimal for 82% of users.](figures/T3_route_gap.png){width=5.6in}
+![Figure 29 (T3). Visiting in recommendation order walks 26% more; NN + 2-opt is exactly optimal for 82% of users.](figures/T3_route_gap.png){width=5.6in}
 
-![Figure 28 (T2). Measured runtime per instance by number of places.](figures/T2_route_runtime.png){width=5.6in}
+![Figure 30 (T2). Measured runtime per instance by number of places.](figures/T2_route_runtime.png){width=5.6in}
 
 Opening hours: on 400 random day plans, the hours-aware Held-Karp cut visits that arrive at a closed place from 272 to 82 (70% fewer, Wilcoxon p < 1e-26). It walks 0.9 km more on average, but waiting time falls by 39 minutes and the day ends 27 minutes earlier.
 
 Walking distance on real streets (OpenStreetMap, Dijkstra): real walks are a median 1.30 times the straight line. For 2,230 Center City test users, re-ranking by walking distance gave no significant accuracy difference (p = 0.61), and the straight-line optimal order is also walking-optimal for 65% of users (mean extra 1.2%, worst 14%). Straight-line distance is a sufficient approximation for the experiments; real streets are needed only for the routes shown to users. These walking numbers were measured before the study-area boundary fix of issue #66 and are marked for re-run in the repository.
 
-![Figure 29 (W1). Walking detour factor: median 1.30 times the straight line.](figures/W1_walking_detour.png){width=5.6in}
+![Figure 31 (W1). Walking detour factor: median 1.30 times the straight line.](figures/W1_walking_detour.png){width=5.6in}
 
-![Figure 30 (W2). Straight-line routing is almost free on real streets.](figures/W2_route_on_streets.png){width=5.6in}
+![Figure 32 (W2). Straight-line routing is almost free on real streets.](figures/W2_route_on_streets.png){width=5.6in}
 
 The full system on one test user (user 166, anchor 0.5 km south-west of City Hall): the Hybrid prediction is blended with popularity, re-ranked by exponential distance decay, and the six chosen places are ordered by Held-Karp on OpenStreetMap walking distances. The optimal walk is 2.6 km (about 35 minutes at 4.5 km/h) against 4.2 km in recommendation order, and stop 2 (Parc) is a place this user rated 4 or more stars in the held-out test set.
 
-![Figure 31 (ROUTE). The model's route for one test user on real streets: blue is the Held-Karp walking order, dashed grey the recommendation order. Map data © OpenStreetMap contributors.](figures/ROUTE_MAP.png){width=6.3in}
+![Figure 33 (ROUTE). The model's route for one test user on real streets: blue is the Held-Karp walking order, dashed grey the recommendation order. Map data © OpenStreetMap contributors.](figures/ROUTE_MAP.png){width=6.3in}
 
 ### 9.5 Hyperparameter search
 
@@ -440,31 +446,31 @@ Sensitivity: how much the metric moves across each searched range (best and wors
 | Distance decay, exponential | tau 0.5 to 1000 km | NDCG@10 | 0.0064 | 0.0028 | 0.004 |
 | Distance decay, hard cutoff | radius 0.5 to 1000 km | NDCG@10 | 0.0045 | 0.0009 | 0.004 |
 
-The rating models are most sensitive to regularization (CBF lambda_c, Bias lambda) and to the kNN similarity; MF and the hybrid weight barely move RMSE. Ranking is far more sensitive: gamma = 0 (no popularity) is 16 times worse than gamma = 5, and the exponential decay stays within 0.0006 NDCG@10 of its best for any tau from 0.5 to 10 km, while large tau falls back to the rating order. The decay sweep is computed on the 3,000 evaluation users of Section 9.2 and is shown only as a sensitivity check; tau = 2 km was fixed beforehand from Figure 10.
+The rating models are most sensitive to regularization (CBF lambda_c, Bias lambda) and to the kNN similarity; MF and the hybrid weight barely move RMSE. Ranking is far more sensitive: gamma = 0 (no popularity) is 16 times worse than gamma = 5, and the exponential decay stays within 0.0006 NDCG@10 of its best for any tau from 0.5 to 10 km, while large tau falls back to the rating order. The decay sweep is computed on the 3,000 evaluation users of Section 9.2 and is shown only as a sensitivity check; tau = 2 km was fixed beforehand from Figure 11.
 
-![Figure 32 (M4). MF validation RMSE over factors x regularization.](figures/M4_mf_grid.png){width=5.2in}
+![Figure 34 (M4). MF validation RMSE over factors x regularization.](figures/M4_mf_grid.png){width=5.2in}
 
-![Figure 33 (M1). Item-kNN validation RMSE by similarity and neighbors.](figures/M1_knn_grid.png){width=5.2in}
+![Figure 35 (M1). Item-kNN validation RMSE by similarity and neighbors.](figures/M1_knn_grid.png){width=5.2in}
 
-![Figure 34 (M3). MF learning curve with early stopping.](figures/M3_mf_learning_curve.png){width=5.2in}
+![Figure 36 (M3). MF learning curve with early stopping.](figures/M3_mf_learning_curve.png){width=5.2in}
 
-![Figure 35 (M5, M6). Hybrid weight: fixed alpha and adaptive kappa curves are nearly flat.](figures/M5_M6_hybrid_weight.png){width=6.0in}
+![Figure 37 (M5, M6). Hybrid weight: fixed alpha and adaptive kappa curves are nearly flat.](figures/M5_M6_hybrid_weight.png){width=6.0in}
 
 ### 9.6 Robustness: time-ordered split
 
 The default split shuffles each user's ratings, so 88% of warm users train on a rating newer than one of their test ratings. Re-splitting each warm user by date (oldest about 70% train, newest about 15% test) makes most metrics worse: Bias RMSE 1.051 → 1.108, popularity NDCG@10 0.0323 → 0.0218. The conclusions hold. The four rating models remain within 0.001 of each other, and distance re-ranking still raises Hybrid NDCG@10 (0.0012 → 0.0049) while cutting list distance from 5.0 to 2.3 km. The best method is still the Hybrid blend plus distance (0.0245).
 
-![Figure 36 (S1). Random vs time-ordered split.](figures/S1_temporal_split.png){width=6.3in}
+![Figure 38 (S1). Random vs time-ordered split.](figures/S1_temporal_split.png){width=6.3in}
 
 ### 9.7 Worked example: one user through the pipeline
 
 The figures below come from the first end-to-end prototype run documented in the proposal and illustrate the three stages for one test user with 45 training ratings; their numbers are from that run, not from the final experiments above.
 
-![Figure 37 (X1). Rating prediction: item bias adds +0.75 to +0.91 stars, the latent term at most 0.02.](figures/X1.png){width=6.0in}
+![Figure 39 (X1). Rating prediction: item bias adds +0.75 to +0.91 stars, the latent term at most 0.02.](figures/X1.png){width=6.0in}
 
-![Figure 38 (X2). Re-ranking pulls the user's top 10 from a mean 13.9 km to 8.8 km away.](figures/X2.png){width=5.6in}
+![Figure 40 (X2). Re-ranking pulls the user's top 10 from a mean 13.9 km to 8.8 km away.](figures/X2.png){width=5.6in}
 
-![Figure 39 (X3). The optimal order shortens the 6-stop route from 54.3 km to 24.1 km.](figures/X3.png){width=6.3in}
+![Figure 41 (X3). The optimal order shortens the 6-stop route from 54.3 km to 24.1 km.](figures/X3.png){width=6.3in}
 
 ## 10. System and open source
 
