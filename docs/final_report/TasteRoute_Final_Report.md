@@ -350,7 +350,7 @@ The median user has only 6 training ratings, so there is little structure beyond
 
 RQ1 expected a trade-off: closer lists, lower accuracy. The opposite happened. Exponential decay with tau = 2 km cuts the Hybrid list's mean distance from 6.3 to 2.1 km and raises NDCG@10 from 0.0009 to 0.0062 (6.9 times). Users mostly rate places near where they already go, so distance is itself a strong relevance signal. The hard cutoff is worse than smooth decay at every radius.
 
-![Figure 20 (R2). Closer lists are also more accurate: NDCG@10 against mean list distance, one point per decay scale.](figures/R2_accuracy_vs_distance.png){width=6.0in}
+![Figure 20 (R2). Closer lists are also more accurate: NDCG@10 against mean list distance, one point per decay scale (tau, or the radius for cutoff). Power decay is not drawn because it overlaps the exponential curve (within 0.00015).](figures/R2_accuracy_vs_distance.png){width=6.0in}
 
 Predicted ratings alone do not beat popularity, and a popularity blend plus distance (P@10 0.0102) is practically the same as popularity plus distance (0.0100): the ranking signal in this data comes mostly from popularity and distance.
 
@@ -406,6 +406,10 @@ Walking distance on real streets (OpenStreetMap, Dijkstra): real walks are a med
 
 ![Figure 30 (W2). Straight-line routing is almost free on real streets.](figures/W2_route_on_streets.png){width=5.6in}
 
+The full system on one test user (user 166, anchor 0.5 km south-west of City Hall): the Hybrid prediction is blended with popularity, re-ranked by exponential distance decay, and the six chosen places are ordered by Held-Karp on OpenStreetMap walking distances. The optimal walk is 2.6 km (about 35 minutes at 4.5 km/h) against 4.2 km in recommendation order, and stop 2 (Parc) is a place this user rated 4 or more stars in the held-out test set.
+
+![Figure 31 (ROUTE). The model's route for one test user on real streets: blue is the Held-Karp walking order, dashed grey the recommendation order. Map data © OpenStreetMap contributors.](figures/ROUTE_MAP.png){width=6.3in}
+
 ### 9.5 Hyperparameter search
 
 | Model | Searched | Best (validation) |
@@ -438,29 +442,29 @@ Sensitivity: how much the metric moves across each searched range (best and wors
 
 The rating models are most sensitive to regularization (CBF lambda_c, Bias lambda) and to the kNN similarity; MF and the hybrid weight barely move RMSE. Ranking is far more sensitive: gamma = 0 (no popularity) is 16 times worse than gamma = 5, and the exponential decay stays within 0.0006 NDCG@10 of its best for any tau from 0.5 to 10 km, while large tau falls back to the rating order. The decay sweep is computed on the 3,000 evaluation users of Section 9.2 and is shown only as a sensitivity check; tau = 2 km was fixed beforehand from Figure 10.
 
-![Figure 31 (M4). MF validation RMSE over factors x regularization.](figures/M4_mf_grid.png){width=5.2in}
+![Figure 32 (M4). MF validation RMSE over factors x regularization.](figures/M4_mf_grid.png){width=5.2in}
 
-![Figure 32 (M1). Item-kNN validation RMSE by similarity and neighbors.](figures/M1_knn_grid.png){width=5.2in}
+![Figure 33 (M1). Item-kNN validation RMSE by similarity and neighbors.](figures/M1_knn_grid.png){width=5.2in}
 
-![Figure 33 (M3). MF learning curve with early stopping.](figures/M3_mf_learning_curve.png){width=5.2in}
+![Figure 34 (M3). MF learning curve with early stopping.](figures/M3_mf_learning_curve.png){width=5.2in}
 
-![Figure 34 (M5, M6). Hybrid weight: fixed alpha and adaptive kappa curves are nearly flat.](figures/M5_M6_hybrid_weight.png){width=6.0in}
+![Figure 35 (M5, M6). Hybrid weight: fixed alpha and adaptive kappa curves are nearly flat.](figures/M5_M6_hybrid_weight.png){width=6.0in}
 
 ### 9.6 Robustness: time-ordered split
 
 The default split shuffles each user's ratings, so 88% of warm users train on a rating newer than one of their test ratings. Re-splitting each warm user by date (oldest about 70% train, newest about 15% test) makes most metrics worse: Bias RMSE 1.051 → 1.108, popularity NDCG@10 0.0323 → 0.0218. The conclusions hold. The four rating models remain within 0.001 of each other, and distance re-ranking still raises Hybrid NDCG@10 (0.0012 → 0.0049) while cutting list distance from 5.0 to 2.3 km. The best method is still the Hybrid blend plus distance (0.0245).
 
-![Figure 35 (S1). Random vs time-ordered split.](figures/S1_temporal_split.png){width=6.3in}
+![Figure 36 (S1). Random vs time-ordered split.](figures/S1_temporal_split.png){width=6.3in}
 
 ### 9.7 Worked example: one user through the pipeline
 
 The figures below come from the first end-to-end prototype run documented in the proposal and illustrate the three stages for one test user with 45 training ratings; their numbers are from that run, not from the final experiments above.
 
-![Figure 36 (X1). Rating prediction: item bias adds +0.75 to +0.91 stars, the latent term at most 0.02.](figures/X1.png){width=6.0in}
+![Figure 37 (X1). Rating prediction: item bias adds +0.75 to +0.91 stars, the latent term at most 0.02.](figures/X1.png){width=6.0in}
 
-![Figure 37 (X2). Re-ranking pulls the user's top 10 from a mean 13.9 km to 8.8 km away.](figures/X2.png){width=5.6in}
+![Figure 38 (X2). Re-ranking pulls the user's top 10 from a mean 13.9 km to 8.8 km away.](figures/X2.png){width=5.6in}
 
-![Figure 38 (X3). The optimal order shortens the 6-stop route from 54.3 km to 24.1 km.](figures/X3.png){width=6.3in}
+![Figure 39 (X3). The optimal order shortens the 6-stop route from 54.3 km to 24.1 km.](figures/X3.png){width=6.3in}
 
 ## 10. System and open source
 
