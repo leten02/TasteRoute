@@ -160,6 +160,7 @@ streamlit run app/dashboard.py
 ## 문서
 
 - [제안서](docs/Term_Project_Proposal.docx)
+- [최종 보고서 (PDF)](docs/final_report/TasteRoute_Final_Report.pdf) · [Markdown](docs/final_report/TasteRoute_Final_Report.md)
 - [코드 구현 계획](docs/TasteRoute_Code_Plan.md)
 - [구현 가이드](docs/TasteRoute_Build_Guide.md)
 - [실제 도보 길찾기](docs/Walking_Route.md)
