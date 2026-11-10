@@ -112,7 +112,7 @@ $$
 
 ## 4. Preprocessing
 
-The working set is Philadelphia restaurants within 15 km of City Hall after 5-core filtering: 490,539 ratings, 31,743 users and 7,693 businesses (density 0.20%). It is built by `data_analysis_preprocessing/preprocess.py` in about 90 seconds.
+The working set is Philadelphia restaurants within 15 km of City Hall after 5-core filtering: 490,539 ratings, 31,743 users and 7,693 businesses (density 0.20%). The preprocessing script builds it in about 90 seconds.
 
 ![Figure 14 (P1). Preprocessing pipeline, all counts measured.](figures/P1.png){width=6.3in}
 
@@ -158,7 +158,7 @@ Each user's ratings are split about 70 / 15 / 15 into train, validation and test
 
 ## 5. Models
 
-All rating models share one interface (`fit(train)`, `predict(u, i)`, `score_all(u)`), train on the same split and are tuned on validation RMSE. Final settings are in Section 9.5.
+All rating models share one interface (fit on the training ratings, predict a rating for a user-place pair, score every place for a user), train on the same split and are tuned on validation RMSE. Final settings are in Section 9.5.
 
 ### 5.1 Baselines
 
@@ -317,7 +317,7 @@ $$
 
 ## 9. Results
 
-All numbers are on the test set; every choice was made on validation. Sources are the result files in the repository (`results/*.json`).
+All numbers are on the test set; every choice was made on validation. Sources are the result files in the repository's results folder.
 
 ### 9.1 Rating prediction
 
@@ -421,6 +421,23 @@ Walking distance on real streets (OpenStreetMap, Dijkstra): real walks are a med
 
 MF prefers few factors and strong regularization, the same message as Section 9.1: the data supports little latent structure.
 
+Sensitivity: how much the metric moves across each searched range (best and worst grid point).
+
+| Model | Hyperparameter range | Metric | Best | Worst | Spread |
+| --- | --- | --- | --- | --- | --- |
+| Bias | lambda 1 to 25 | val RMSE | 1.0443 | 1.0697 | 0.025 |
+| Item-kNN | 3 similarities x k x beta (36 runs) | val RMSE | 1.1134 | 1.1761 | 0.063 |
+| Item-kNN, cosine only | k x beta (12 runs) | val RMSE | 1.1134 | 1.1456 | 0.032 |
+| MF | f 10 to 100 x lambda 0.01 to 0.1 (16 runs) | val RMSE | 1.0455 | 1.0625 | 0.017 |
+| CBF | lambda_c 0.3 to 30 | val RMSE | 1.0441 | 1.1106 | 0.066 |
+| Hybrid, fixed alpha | alpha 0 to 1 | val RMSE | 1.0441 | 1.0455 | 0.001 |
+| Hybrid, adaptive kappa | kappa 0.5 to 100 | val RMSE | 1.0442 | 1.0454 | 0.001 |
+| Popularity blend | gamma 0 to 20 | val NDCG@10 | 0.0315 | 0.0019 | 0.030 |
+| Distance decay, exponential | tau 0.5 to 1000 km | NDCG@10 | 0.0064 | 0.0028 | 0.004 |
+| Distance decay, hard cutoff | radius 0.5 to 1000 km | NDCG@10 | 0.0045 | 0.0009 | 0.004 |
+
+The rating models are most sensitive to regularization (CBF lambda_c, Bias lambda) and to the kNN similarity; MF and the hybrid weight barely move RMSE. Ranking is far more sensitive: gamma = 0 (no popularity) is 16 times worse than gamma = 5, and the exponential decay stays within 0.0006 NDCG@10 of its best for any tau from 0.5 to 10 km, while large tau falls back to the rating order. The decay sweep is computed on the 3,000 evaluation users of Section 9.2 and is shown only as a sensitivity check; tau = 2 km was fixed beforehand from Figure 10.
+
 ![Figure 31 (M4). MF validation RMSE over factors x regularization.](figures/M4_mf_grid.png){width=5.2in}
 
 ![Figure 32 (M1). Item-kNN validation RMSE by similarity and neighbors.](figures/M1_knn_grid.png){width=5.2in}
@@ -445,72 +462,61 @@ The figures below come from the first end-to-end prototype run documented in the
 
 ![Figure 38 (X3). The optimal order shortens the 6-stop route from 54.3 km to 24.1 km.](figures/X3.png){width=6.3in}
 
-## 10. Discussion
-
-### 10.1 What worked and what did not
-
-- Distance re-ranking is the clearest win: it shortens lists and improves accuracy at the same time, and it survives the time-ordered split.
-- Exact route optimization is cheap at this size, and ordering alone saves a quarter of the walking.
-- Rating models could not beat the bias baseline (RQ2 negative, MF and kNN no better). With a median of 6 training ratings, there is little to learn beyond biases.
-- Rating-trained models rank worse than popularity; the fix was to blend popularity into the candidate score and to re-rank by distance.
-
-### 10.2 Difficulties and how we solved them
-
-| Difficulty | Solution |
-| --- | --- |
-| Extreme sparsity (99.998%) | Radius scope, 5-core filtering, strong regularization |
-| CBF failed for 1-rating users (RMSE 1.50) | Fit CBF on bias residuals instead of the user mean |
-| Rating models rank below popularity | Minimum-support filter, popularity blend, distance re-ranking |
-| Random split leaks the future | Time-ordered split as a robustness check |
-| Straight-line distance is unrealistic | Walking distance on OpenStreetMap, opening-hours-aware routing |
-
-### 10.3 Limitations and what we would do differently
-
-- Users have no location in Yelp; the anchor is the median of their rated places, which favors users who stay local.
-- Open/closed status (`is_open`) is the 2022 snapshot, and the walking evaluation awaits a re-run after the boundary fix.
-- The time-ordered split is per user, not a global cut-off date.
-- Starting again, we would train for ranking (BPR or the visit model) and evaluate on a time-ordered split from the first day.
-
-## 11. System and open source
+## 10. System and open source
 
 | Component | Location | Role |
 | --- | --- | --- |
-| Data analysis and preprocessing | `data_analysis_preprocessing/` | EDA, scope, k-core, split, figures E and P |
-| Package | `src/tasteroute/` | data, models (baseline, item_knn, mf, cbf, hybrid, content_knn, visit, bpr), candidates, rerank, geo, roads, route, pipeline, cluster |
-| Experiments | `experiments/` (`run_all.py`) | every result in `results/` and figure in `figures/`, about 6 minutes |
-| Demo and dashboard | `demo/bakery_tour.py`, `app/dashboard.py` | Philadelphia bakery tour on real streets; Streamlit dashboard |
-| Tests and CI | `tests/`, `.github/workflows/ci.yml` | pytest on synthetic data, ruff, commit-convention check |
+| Data analysis and preprocessing | data_analysis_preprocessing folder | EDA, scope, k-core, split, figures E and P |
+| Package | src/tasteroute | data, models (baseline, item_knn, mf, cbf, hybrid, content_knn, visit, bpr), candidates, rerank, geo, roads, route, pipeline, cluster |
+| Experiments | experiments folder | one driver script produces every result file and figure, about 6 minutes |
+| Demo and dashboard | demo and app folders | Philadelphia bakery tour on real streets; Streamlit dashboard |
+| Tests and CI | tests folder, GitHub Actions | pytest on synthetic data, ruff, commit-convention check |
 
-Work followed issue → branch → pull request into `develop`, with four CI checks and CodeRabbit review required before merge.
+Work followed issue → branch → pull request into the develop branch, with four CI checks and CodeRabbit review required before merge.
 
-| Member | Main contributions |
-| --- | --- |
-| 이태현 (leten02) | Team lead; model and experiment pipeline, dashboard, repository and CI |
-| 효빈 (Hyobin0515) | Data analysis and preprocessing, proposal, time-ordered split evaluation, review follow-ups |
-| 건희 (Bae-kunhee) | Dashboard keyboard accessibility, road-network cache and opening-hours boundaries |
-| 가경 (GaKingOh) | Walking experiment scope fix and re-run, documentation tables |
-
-Run the whole study:
+The whole study, in pseudocode:
 
 ```
-pip install -e ".[dev,demo]"
-python data_analysis_preprocessing/preprocess.py
-python experiments/run_all.py
-pytest
-python demo/bakery_tour.py --straight
+Algorithm 1. TasteRoute study
+1  R ← Yelp reviews; keep restaurants within 15 km of City Hall
+2  keep the latest rating per (user, place); apply 5-core filtering
+3  split each user's ratings 70 / 15 / 15 into train / val / test
+4  hold out a cold-start group with m ∈ {1, 3, 5} training ratings
+5  for each model M in {Bias, Item-kNN, MF, CBF, Hybrid, BPR}:
+6      for each setting θ in the grid of M:
+7          fit M_θ on train; record the validation metric
+8      θ* ← best setting on validation; refit and evaluate once on test
+9  for each test user u:
+10     C ← open, unseen places with ≥ 20 training ratings
+11     s(i) ← r̂_ui + γ log(1 + pop_i) for i ∈ C   # blend
+12     s(i) ← s(i) · exp(−d(anchor_u, i) / τ)   # distance
+13     L ← top-N places by s
+14     route ← Held-Karp(start, L)   # exact order
+15 report RMSE, P@K, NDCG@K, route gap; paired t-test and bootstrap CI
+```
+
+```
+Algorithm 2. Held-Karp for an open path from start 0 through places 1..N
+1  for j in 1..N: C[{j}, j] ← D[0, j]
+2  for size in 2..N:
+3      for each subset S of {1..N} with |S| = size, for j in S:
+4          C[S, j] ← min over k in S \ {j} of C[S \ {j}, k] + D[k, j]
+5  end ← argmin_j C[{1..N}, j]
+6  trace the argmin choices back from end to recover the order
 ```
 
 ## References
 
-- Y. Koren, R. Bell, C. Volinsky, "Matrix Factorization Techniques for Recommender Systems", IEEE Computer, 2009 (bias model, MF and SGD updates)
-- A. Yeung, "Matrix Factorization: A Simple Tutorial and Implementation in Python", https://albertauyeung.github.io/2017/04/23/python-matrix-factorization.html/ (MF SGD implementation reference)
-- B. Sarwar et al., "Item-based Collaborative Filtering Recommendation Algorithms", WWW, 2001 (item-kNN similarity)
-- Y. Koren, "Factor in the Neighbors: Scalable and Accurate Collaborative Filtering", ACM TKDD, 2010 (similarity shrinkage, neighbors on a bias baseline)
-- S. Rendle et al., "BPR: Bayesian Personalized Ranking from Implicit Feedback", UAI, 2009 (BPR)
-- K. Järvelin, J. Kekäläinen, "Cumulated Gain-based Evaluation of IR Techniques", ACM TOIS, 2002 (NDCG)
-- M. Held, R. Karp, "A Dynamic Programming Approach to Sequencing Problems", J. SIAM, 1962 (Held-Karp)
-- G. A. Croes, "A Method for Solving Traveling-Salesman Problems", Operations Research, 1958 (2-opt)
-- E. W. Dijkstra, "A Note on Two Problems in Connexion with Graphs", Numerische Mathematik, 1959 (shortest paths)
-- G. Boeing, "OSMnx", Computers, Environment and Urban Systems, 2017 (road network download)
+- Y. Koren, R. Bell, C. Volinsky, "Matrix Factorization Techniques for Recommender Systems", IEEE Computer 42(8), 30-37, 2009 (bias model, MF and SGD updates)
+- A. Au Yeung, "Matrix Factorization: A Simple Tutorial and Implementation in Python", blog post, 2017 (first published 2010), https://albertauyeung.github.io/2017/04/23/python-matrix-factorization.html (MF SGD implementation reference)
+- B. Sarwar, G. Karypis, J. Konstan, J. Riedl, "Item-based Collaborative Filtering Recommendation Algorithms", Proc. WWW, 285-295, 2001 (item-kNN similarity)
+- Y. Koren, "Factor in the Neighbors: Scalable and Accurate Collaborative Filtering", ACM TKDD 4(1), 1:1-1:24, 2010 (similarity shrinkage, neighbors on a bias baseline)
+- S. Rendle, C. Freudenthaler, Z. Gantner, L. Schmidt-Thieme, "BPR: Bayesian Personalized Ranking from Implicit Feedback", Proc. UAI, 452-461, 2009 (BPR)
+- J. Carbonell, J. Goldstein, "The Use of MMR, Diversity-Based Reranking for Reordering Documents and Producing Summaries", Proc. SIGIR, 335-336, 1998 (Maximal Marginal Relevance)
+- K. Järvelin, J. Kekäläinen, "Cumulated Gain-based Evaluation of IR Techniques", ACM TOIS 20(4), 422-446, 2002 (NDCG)
+- M. Held, R. M. Karp, "A Dynamic Programming Approach to Sequencing Problems", J. SIAM 10(1), 196-210, 1962 (Held-Karp)
+- G. A. Croes, "A Method for Solving Traveling-Salesman Problems", Operations Research 6(6), 791-812, 1958 (2-opt)
+- E. W. Dijkstra, "A Note on Two Problems in Connexion with Graphs", Numerische Mathematik 1, 269-271, 1959 (shortest paths)
+- G. Boeing, "OSMnx: New Methods for Acquiring, Constructing, Analyzing, and Visualizing Complex Street Networks", Computers, Environment and Urban Systems 65, 126-139, 2017 (road network download)
 - Yelp Open Dataset, https://www.yelp.com/dataset (data; redistribution not allowed, not committed)
 - OpenStreetMap contributors, https://www.openstreetmap.org (walking network, ODbL)
